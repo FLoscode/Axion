@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antarctic Telemetry Console</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['ui-monospace', 'monospace'] },
+                    colors: {
+                        darkbg: '#0a0f18',
+                        panelbg: '#111826',
+                        panelborder: '#1f2937',
+                        cyan: '#22d3ee',
+                        purple: '#a855f7',
+                        green: '#10b981',
+                        yellow: '#eab308',
+                        red: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            background-color: #0a0f18; 
+            color: #94a3b8; 
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .panel { 
+            background: linear-gradient(180deg, #111826 0%, #0d131f 100%);
+            border-radius: 0.75rem; 
+            border: 1px solid #1f2937; 
+            position: relative; 
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Modern corner brackets */
+        .corner-tl, .corner-tr, .corner-bl, .corner-br { position: absolute; width: 12px; height: 12px; border-color: #4b5563; border-style: solid; }
+        .corner-tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-top-left-radius: 0.75rem; }
+        .corner-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; border-top-right-radius: 0.75rem; }
+        .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; border-bottom-left-radius: 0.75rem; }
+        .corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-bottom-right-radius: 0.75rem; }
+        
+        .custom-input {
+            background-color: #0a0f18;
+            border: 1px solid #1f2937;
+            color: #f8fafc;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .custom-input:focus { outline: none; border-color: #22d3ee; box-shadow: 0 0 0 1px #22d3ee; }
+        
+        .btn {
+            background-color: transparent;
+            border: 1px solid #374151;
+            color: #94a3b8;
+            padding: 0.375rem 0.875rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { border-color: #6b7280; color: #f8fafc; background-color: rgba(255,255,255,0.02); }
+        .btn-active { background-color: rgba(34, 211, 238, 0.1); border-color: #22d3ee; color: #22d3ee; }
+        
+        .status-pill {
+            background-color: rgba(0,0,0,0.2);
+            border: 1px solid #1f2937;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        /* Circular Progress */
+        .circular-chart { display: block; margin: 0 auto; max-width: 100%; max-height: 100%; }
+        .circle-bg { fill: none; stroke: #1f2937; stroke-width: 3.5; }
+        .circle { fill: none; stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 1s ease-out; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const INITIAL_DATA = {
+            stations: [
+                {
+                    id: 'bharti',
+                    name: 'BHARTI STATION',
+                    sensors: [
+                        { id: 's1', name: 'IoT Sensor', status: 'OK' },
+                        { id: 's2', name: 'Thermal Sensor', status: 'WARN' },
+                        { id: 's3', name: 'Temp Sensor', status: 'OK' },
+                    ]
+                },
+                {
+                    id: 'maitri',
+                    name: 'MAITRI STATION',
+                    sensors: [
+                        { id: 's4', name: 'IoT Sensor', status: 'FAULT' },
+                        { id: 's5', name: 'Thermal Sensor', status: 'WARN' },
+                        { id: 's6', name: 'Temp Sensor', status: 'OK' },
+                    ]
+                }
+            ],
+            generators: [
+                { name: 'Gen 1', output: 160 },
+                { name: 'Gen 2', output: 155 },
+                { name: 'Gen 3', output: 50 },
+                { name: 'Gen 4', output: 48 },
+            ],
+            utility: { load: 70, reserve: 75 },
+            uptime: [
+                { time: '16:47:10', Bharti: 24, Maitri: 19 },
+                { time: '16:47:18', Bharti: 23, Maitri: 18 },
+                { time: '16:47:23', Bharti: 24, Maitri: 16 },
+                { time: '16:47:31', Bharti: 23, Maitri: 14 },
+                { time: '17:06:39', Bharti: 21, Maitri: 15 },
+            ]
+        };
+
+        const BATTERY_DATA = [
+            { name: 'CookHouse', value: 35, color: '#eab308' },
+            { name: 'Warehouse', value: 25, color: '#22d3ee' },
+            { name: 'BioLab', value: 25, color: '#a855f7' },
+            { name: 'Waste Ref', value: 15, color: '#10b981' },
+        ];
+
+        // Custom Chart Components
+        const GeneratorChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!chartRef.current && canvasRef.current) {
+                    chartRef.current = new Chart(canvasRef.current, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.name),
+                            datasets: [{
+                                label: 'Output',
+                                data: data.map(d => d.output),
+                                backgroundColor: '#22d3ee',
+                                borderRadius: 6,
+                                barThickness: 45
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { beginAtZero: true, max: 220, grid: { color: '#1f2937' }, ticks: { color: '#64748b', font: {family: 'Inter'} }, border: {display: false} },
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8', font: {family: 'Inter', weight: 500} }, border: {display: false} }
+                            },
+                            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#111826', titleFont: {family: 'Inter'}, bodyFont: {family: 'Inter'}, borderColor: '#1f2937', borderWidth: 1 } }
+                        }
+                    });
+                } else if (chartRef.current) {
+                    chartRef.current.data.datasets[0].data = data.map(d => d.output);
+                    chartRef.current.update('none');
+                }
+            }, [data]);
+
+            return <div className="h-full w-full relative"><canvas ref={canvasRef}></canvas></div>;
+        };
+
+        const BatteryChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!chartRef.current && canvasRef.current) {
+                    chartRef.current = new Chart(canvasRef.current, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.map(d => d.name),
+                            datasets: [{
+                                data: data.map(d => d.value),
+                                backgroundColor: data.map(d => d.color),
+                                borderWidth: 0,
+                                hoverOffset: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '72%',
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { backgroundColor: '#111826', titleFont: {family: 'Inter'}, bodyFont: {family: 'Inter'}, borderColor: '#1f2937', borderWidth: 1 }
+                            }
+                        }
+                    });
+                }
+            }, [data]);
+
+            return <div className="h-full w-full relative"><canvas ref={canvasRef}></canvas></div>;
+        };
+
+        const UptimeChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!chartRef.current && canvasRef.current) {
+                    chartRef.current = new Chart(canvasRef.current, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => d.time),
+                            datasets: [
+                                { label: 'Bharti', data: data.map(d => d.Bharti), borderColor: '#22d3ee', borderWidth: 2, tension: 0.4, pointRadius: 0, pointHitRadius: 10 },
+                                { label: 'Maitri', data: data.map(d => d.Maitri), borderColor: '#a855f7', borderWidth: 2, tension: 0.4, pointRadius: 0, pointHitRadius: 10 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { beginAtZero: true, max: 25, grid: { color: '#1f2937' }, ticks: { color: '#64748b', font: {family: 'Inter'} }, border: {display: false} },
+                                x: { grid: { display: false }, ticks: { color: '#64748b', font: {family: 'Inter'} }, border: {display: false} }
+                            },
+                            plugins: {
+                                legend: { labels: { color: '#94a3b8', usePointStyle: true, boxWidth: 8, font: {family: 'Inter'} } },
+                                tooltip: { mode: 'index', intersect: false, backgroundColor: '#111826', borderColor: '#1f2937', borderWidth: 1, titleFont: {family: 'Inter'}, bodyFont: {family: 'Inter'} }
+                            }
+                        }
+                    });
+                } else if (chartRef.current) {
+                    chartRef.current.data.labels = data.map(d => d.time);
+                    chartRef.current.data.datasets[0].data = data.map(d => d.Bharti);
+                    chartRef.current.data.datasets[1].data = data.map(d => d.Maitri);
+                    chartRef.current.update('none');
+                }
+            }, [data]);
+
+            return <div className="h-full w-full relative"><canvas ref={canvasRef}></canvas></div>;
+        };
+
+        const SaveIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>;
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'OK': return 'bg-green shadow-[0_0_8px_#10b981]';
+                case 'WARN': return 'bg-yellow shadow-[0_0_8px_#eab308]';
+                case 'FAULT': return 'bg-red shadow-[0_0_8px_#ef4444]';
+                default: return 'bg-gray-500';
+            }
+        }
+        
+        function getStatusTextColor(status) {
+            switch(status) {
+                case 'OK': return 'text-green';
+                case 'WARN': return 'text-yellow';
+                case 'FAULT': return 'text-red';
+                default: return 'text-gray-500';
+            }
+        }
+
+        const CircularGauge = ({ percentage }) => {
+            const sqSize = 160;
+            const strokeWidth = 14;
+            const radius = (sqSize - strokeWidth) / 2;
+            const viewBox = `0 0 ${sqSize} ${sqSize}`;
+            const dashArray = radius * Math.PI * 2;
+            const dashOffset = dashArray - dashArray * percentage / 100;
+
+            return (
+                <div className="relative flex flex-col items-center justify-center">
+                    <svg width={sqSize} height={sqSize} viewBox={viewBox} className="circular-chart drop-shadow-lg">
+                        <circle className="circle-bg" cx={sqSize / 2} cy={sqSize / 2} r={radius} />
+                        <circle
+                            className="circle"
+                            stroke="#22d3ee"
+                            cx={sqSize / 2}
+                            cy={sqSize / 2}
+                            r={radius}
+                            strokeDasharray={dashArray}
+                            strokeDashoffset={dashOffset}
+                            transform={`rotate(-90 ${sqSize / 2} ${sqSize / 2})`}
+                        />
+                    </svg>
+                    <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-4xl font-bold text-white tracking-tight">{percentage}%</span>
+                        <span className="text-xs font-semibold uppercase tracking-widest mt-1 text-gray-500">Load</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // Extracted component so state doesn't reset when App re-renders
+        const StationCard = ({ station, onAddSensor, onRemoveSensor, onRemoveStation }) => {
+            const [newSensor, setNewSensor] = useState('');
+            
+            const handleAdd = () => {
+                if(newSensor.trim()) {
+                    onAddSensor(station.id, newSensor);
+                    setNewSensor('');
+                }
+            };
+
+            return (
+                <div className="panel p-5 mb-5 hover:border-gray-700 transition-colors duration-300">
+                    <div className="corner-tl"></div><div className="corner-tr"></div><div className="corner-bl"></div><div className="corner-br"></div>
+                    
+                    <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-800">
+                        <h3 className="text-[13px] tracking-[0.1em] font-semibold text-gray-300 uppercase">{station.name}</h3>
+                        <button onClick={() => onRemoveStation(station.id)} className="text-xs text-gray-500 hover:text-red transition-colors">Remove</button>
+                    </div>
+                    
+                    <div className="space-y-4 mb-6">
+                        {station.sensors.map(sensor => (
+                            <div key={sensor.id} className="flex items-center justify-between group">
+                                <div className="flex items-center space-x-3">
+                                    <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(sensor.status)}`}></div>
+                                    <span className="text-gray-200 text-sm font-medium">{sensor.name}</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <span className={`status-pill ${getStatusTextColor(sensor.status)} w-12 text-center`}>{sensor.status}</span>
+                                    <button 
+                                        onClick={() => onRemoveSensor(station.id, sensor.id)} 
+                                        className="text-gray-600 hover:text-red transition-colors text-lg leading-none opacity-0 group-hover:opacity-100"
+                                        title="Remove Sensor"
+                                    >&times;</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="flex space-x-3 mt-auto pt-2">
+                        <input 
+                            type="text" 
+                            placeholder="New sensor name" 
+                            className="custom-input flex-1 min-w-0"
+                            value={newSensor}
+                            onChange={(e) => setNewSensor(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                        />
+                        <button 
+                            className="btn flex items-center justify-center bg-gray-800 shrink-0"
+                            onClick={handleAdd}
+                        >
+                            + Add
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem('antarcticTelemetry');
+                if (saved) {
+                    try { return JSON.parse(saved); } catch(e) { return INITIAL_DATA; }
+                }
+                return INITIAL_DATA;
+            });
+            const [isLive, setIsLive] = useState(true);
+            const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC' }));
+            
+            useEffect(() => {
+                let interval;
+                if (isLive) {
+                    interval = setInterval(() => {
+                        const now = new Date();
+                        setCurrentTime(now.toLocaleTimeString('en-GB', { timeZone: 'UTC' }));
+                        
+                        setData(prev => {
+                            const newGens = prev.generators.map(g => ({
+                                ...g,
+                                output: Math.max(0, g.output + (Math.random() * 10 - 5))
+                            }));
+                            
+                            const newLoad = Math.max(0, Math.min(100, prev.utility.load + (Math.random() * 4 - 2)));
+                            
+                            let newUptime = [...prev.uptime];
+                            if (Math.random() > 0.8) {
+                                newUptime.push({
+                                    time: now.toLocaleTimeString('en-GB', { timeZone: 'UTC' }),
+                                    Bharti: Math.max(0, prev.uptime[prev.uptime.length-1]?.Bharti || 20 + (Math.random() * 2 - 1)),
+                                    Maitri: Math.max(0, prev.uptime[prev.uptime.length-1]?.Maitri || 15 + (Math.random() * 2 - 1))
+                                });
+                                if (newUptime.length > 5) newUptime.shift();
+                            }
+
+                            const newStations = prev.stations.map(st => {
+                                if (Math.random() > 0.95) {
+                                    return {
+                                        ...st,
+                                        sensors: st.sensors.map(s => {
+                                            if (Math.random() > 0.9) {
+                                                const statuses = ['OK', 'WARN', 'FAULT'];
+                                                return { ...s, status: statuses[Math.floor(Math.random()*3)] };
+                                            }
+                                            return s;
+                                        })
+                                    };
+                                }
+                                return st;
+                            });
+
+                            return {
+                                ...prev,
+                                generators: newGens,
+                                utility: { ...prev.utility, load: Math.round(newLoad) },
+                                uptime: newUptime,
+                                stations: newStations
+                            };
+                        });
+                    }, 2000);
+                } else {
+                    interval = setInterval(() => {
+                        setCurrentTime(new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC' }));
+                    }, 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isLive]);
+
+            const handleSave = () => {
+                localStorage.setItem('antarcticTelemetry', JSON.stringify(data));
+                alert('Dashboard state saved to localStorage!');
+            };
+
+            const handleAddSensor = (stationId, sensorName) => {
+                setData(prev => ({
+                    ...prev,
+                    stations: prev.stations.map(st => {
+                        if (st.id === stationId) {
+                            return { ...st, sensors: [...st.sensors, { id: 's' + Date.now(), name: sensorName, status: 'OK' }] };
+                        }
+                        return st;
+                    })
+                }));
+            };
+
+            const handleRemoveSensor = (stationId, sensorId) => {
+                setData(prev => ({
+                    ...prev,
+                    stations: prev.stations.map(st => {
+                        if (st.id === stationId) {
+                            return { ...st, sensors: st.sensors.filter(s => s.id !== sensorId) };
+                        }
+                        return st;
+                    })
+                }));
+            };
+
+            const handleAddStation = () => {
+                const newId = 'st' + Date.now();
+                setData(prev => ({
+                    ...prev,
+                    stations: [
+                        ...prev.stations, 
+                        {
+                            id: newId,
+                            name: 'NEW STATION ' + (prev.stations.length + 1),
+                            sensors: []
+                        }
+                    ]
+                }));
+            };
+            
+            const handleRemoveStation = (stationId) => {
+                setData(prev => ({
+                    ...prev,
+                    stations: prev.stations.filter(st => st.id !== stationId)
+                }));
+            }
+
+            return (
+                <div className="min-h-screen p-8 flex flex-col max-w-[1600px] mx-auto">
+                    {/* Header */}
+                    <header className="flex justify-between items-start mb-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Antarctic Telemetry Console</h1>
+                            <p className="text-sm text-gray-400 font-medium tracking-wide">Live instrument feed · Antarctic research stations</p>
+                        </div>
+                        
+                        <div className="text-center mt-2 hidden md:block">
+                            <div className="text-4xl font-mono text-white tracking-widest font-light drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">{currentTime}</div>
+                            <div className="text-[11px] text-gray-500 tracking-[0.2em] uppercase mt-1">station time (UTC sim)</div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-4">
+                            <div className="flex items-center space-x-2 px-4 py-1.5 rounded-full border border-gray-800 bg-gray-900 shadow-inner">
+                                <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green shadow-[0_0_8px_#10b981]' : 'bg-red shadow-[0_0_8px_#ef4444]'}`}></div>
+                                <span className="text-[11px] font-bold text-gray-300 uppercase tracking-widest">{isLive ? 'Live' : 'Offline'}</span>
+                            </div>
+                            <div className="flex space-x-3">
+                                <button onClick={handleSave} className="btn flex items-center space-x-2">
+                                    <SaveIcon />
+                                    <span>Save now</span>
+                                </button>
+                                <button 
+                                    onClick={() => setIsLive(!isLive)} 
+                                    className={`btn ${!isLive ? 'btn-active' : ''}`}
+                                >
+                                    {isLive ? 'Simulate feed outage' : 'Resume feed'}
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
+                        
+                        {/* Left Column - Stations */}
+                        <div className="xl:col-span-3 flex flex-col">
+                            {data.stations.map(station => (
+                                <StationCard 
+                                    key={station.id} 
+                                    station={station} 
+                                    onAddSensor={handleAddSensor}
+                                    onRemoveSensor={handleRemoveSensor}
+                                    onRemoveStation={handleRemoveStation}
+                                />
+                            ))}
+                            <button 
+                                className="btn w-full py-4 border-dashed border-gray-700 hover:border-gray-500 mt-2 text-gray-400 bg-gray-900/30"
+                                onClick={handleAddStation}
+                            >
+                                + New station connection
+                            </button>
+                        </div>
+                        
+                        {/* Middle & Right Columns - Charts */}
+                        <div className="xl:col-span-9 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            
+                            {/* Generator Output */}
+                            <div className="panel p-6">
+                                <div className="corner-tl"></div><div className="corner-tr"></div><div className="corner-bl"></div><div className="corner-br"></div>
+                                <h3 className="text-xs tracking-widest font-semibold text-gray-400 uppercase mb-6">Generator Output <span className="text-gray-600 ml-1">· kWh</span></h3>
+                                <div className="h-48 md:h-72">
+                                    <GeneratorChart data={data.generators} />
+                                </div>
+                            </div>
+
+                            {/* Battery Reserve */}
+                            <div className="panel p-6">
+                                <div className="corner-tl"></div><div className="corner-tr"></div><div className="corner-bl"></div><div className="corner-br"></div>
+                                <h3 className="text-xs tracking-widest font-semibold text-gray-400 uppercase mb-4">Battery Reserve <span className="text-gray-600 ml-1">· by location</span></h3>
+                                <div className="h-40 md:h-60 flex flex-col items-center">
+                                    <BatteryChart data={BATTERY_DATA} />
+                                </div>
+                                <div className="flex flex-wrap space-x-6 justify-center w-full mt-6">
+                                    {BATTERY_DATA.map((entry, idx) => (
+                                        <div key={idx} className="flex items-center space-x-2">
+                                            <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: entry.color}}></div>
+                                            <span className="text-xs font-medium text-gray-400">{entry.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Grid Utility */}
+                            <div className="panel p-6">
+                                <div className="corner-tl"></div><div className="corner-tr"></div><div className="corner-bl"></div><div className="corner-br"></div>
+                                <h3 className="text-xs tracking-widest font-semibold text-gray-400 uppercase mb-6">Grid Utility</h3>
+                                <div className="flex items-center justify-around h-56">
+                                    <div className="w-1/2 flex justify-center">
+                                        <CircularGauge percentage={data.utility.load} />
+                                    </div>
+                                    <div className="w-1/3 flex flex-col items-center">
+                                        <div className="h-40 w-10 bg-gray-900 rounded-full relative overflow-hidden border border-gray-800 shadow-inner">
+                                            <div 
+                                                className="absolute bottom-0 w-full bg-cyan transition-all duration-1000 ease-out rounded-full shadow-[0_0_15px_#22d3ee]" 
+                                                style={{height: `${data.utility.reserve}%`}}
+                                            ></div>
+                                        </div>
+                                        <div className="mt-4 text-[11px] font-medium uppercase tracking-wider text-gray-500 text-center"><span className="text-white font-bold text-sm mr-1">{data.utility.reserve}%</span> reserve</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Uptime */}
+                            <div className="panel p-6">
+                                <div className="corner-tl"></div><div className="corner-tr"></div><div className="corner-bl"></div><div className="corner-br"></div>
+                                <h3 className="text-xs tracking-widest font-semibold text-gray-400 uppercase mb-6">Uptime <span className="text-gray-600 ml-1">· last syncs, hrs</span></h3>
+                                <div className="h-48 md:h-64">
+                                    <UptimeChart data={data.uptime} />
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <footer className="mt-10 pt-6 border-t border-gray-800 text-[11px] font-medium text-gray-600 leading-relaxed max-w-5xl pb-4">
+                        Pipeline: sensors &rarr; amplifier / voltage protection / A-DC &rarr; on-site Raspberry Pi &rarr; this console.<br/>
+                        The Pi publishes a reading feed that this console polls every few seconds; if a poll fails, the console keeps running 
+                        on the copy stored in <code className="bg-gray-800 px-1.5 py-0.5 rounded text-gray-400 font-mono">localStorage</code> until the feed answers again. 
+                        Readings here are simulated for the demo — point the poller at the Pi's feed URL to go live.
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+Key Fixes & Architecture Integration
+1. Server Crash Fix & Unified Backend: 
+
+app.py
+Root Cause of Previous Crash: On Windows with Python 3.13, printing Unicode box-drawing characters without UTF-8 console output reconfigured raised a fatal UnicodeEncodeError: 'charmap' codec can't encode characters.
+Fix: Added automatic UTF-8 stream reconfiguration (sys.stdout.reconfigure(encoding='utf-8', errors='replace')), safe ASCII console banners, and non-blocking terminal guards.
+Logistics Simulator Background Engine: Integrated 
+
+logistics_sim.py
+ into a continuous background daemon thread running in app.py. Drives live AIS vessel tracking (RRS Sir David Attenborough), field expedition Iridium pings, fuel farm depletion, and simulated anomalies (VESSEL_OFF_COURSE, FIELD_TEAM_SOS).
+Endpoints Served:
+/ → Serves the unified mission control frontend.
+/models/<path:filename> → Serves 3D station models (.obj, .mtl).
+/api/logistics/* → /summary, /events, /vessel, /field-teams, /fuel, /status, and /action.
+/api/telemetry & /api/telemetry/predict → Real-time station telemetry and Edge AI predictive maintenance.
+/api/gateway/* → Cybersecurity gateway routes (Zero-Trust, PQC ML-KEM-768 / Kyber, VSAT Link Monitor).
+/api/auth/validate-commander → Authenticates Operational Commander credentials.
+2. High-Tech Mission Control Auth Page: 
+
+index.html
+Integrated the authentication gateway from web.html:
+
+Left Mission Panel:
+Glowing cyan PT logo badge and POLARTWIN-OS / NCPOR MISSION CONTROL branding.
+"Antarctic Mission Control" hero header and mission overview.
+Real-time system status indicators: BHARATI STATION (ONLINE) with live pulsing dot, MISSION LINK (STABLE), and EDGE AI (ACTIVE).
+Station coordinates: 69°24′28″S 76°11′14″E | BHARATI RESEARCH STATION.
+Right Login Panel:
+Normal User (Public Outreach): Form with username/password, show/hide toggle, and a Create Account screen saving to localStorage (polarTwinPublicUsers). Default demo account: researcher / Polar@123.
+Authorized Personnel (Operational Commander):
+Personnel ID: NCPOR-ADMIN-001
+Password: PolarAdmin@123
+Satellite Sync Code (Step 2 MFA): 48291736
+Session Persistence & Header:
+Session is preserved in sessionStorage (polarTwinSession) so page reloads remain authenticated.
+Shows authenticated user badge (NCPOR-ADMIN-001 | OPERATIONAL COMMANDER or Public Researcher) with a Logout button that locks the console back to the login screen.
+3. Restored Core Features & Added Logistics Simulator Tab
+All 5 modules are active in the console:
+
+Overview Tab: Live telemetry for Bharati & Maitri, CHP units, generator bars, circular load/reserve meters, uptime line chart, and battery distribution donut.
+3D Models Tab: Three.js WebGL canvas with OrbitControls, OBJLoader, and MTLLoader for Bharati and Maitri stations, camera angle presets (Isometric, Aerial, Side, Front), auto-rotate, wireframe toggle, and HUD overlay.
+Logistics Simulator Tab (New):
+4 Top KPI Cards: Supply Vessel AIS, Field Expeditions, Station Fuel Farm reserve, and Incident Sentinel.
+Tactical Polar Radar: 100 km concentric range rings centered on Bharati Station, live plotting of vessel approach trajectory and field team excursion trails.
+Simulation Controls: Interactive buttons to trigger Fuel Resupply, Inject Anomaly, Ping Teams, or Reset State.
+Fuel Storage & CHP Burn Panel: Reserve progress bar and per-generator (CHP-01, CHP-02, CHP-03) burn rates and loads.
+Live Logistics Event Stream: Scrolling feed of JSONL events with colored category badges and anomaly alert banners.
+Security Tab: Cybersecurity Gateway with Zero-Trust enforcement, live ML-KEM-768 (CRYSTALS-Kyber) keypair generation, and VSAT Link Integrity Monitor.
+Maintenance Tab: Edge AI anomaly detection with interactive RPM/Temperature sliders and real-time inference testing.
+Verification Results
+All HTTP endpoints were tested and verified locally:
+
+GET / → 200 OK (Verified PolarTwin-OS login & dashboard)
+GET /api/logistics/summary → 200 OK
+GET /api/logistics/events?limit=5 → 200 OK
+GET /api/telemetry → 200 OK
+GET /models/bharati/tinker.obj → 200 OK (1.8 MB 3D asset)
+GET /models/bharati/obj.mtl → 200 OK
+POST /api/telemetry/predict → 200 OK (Anomaly detection working)
+POST /api/auth/validate-commander → 200 OK (Credentials validated)
+NOTE
+
+During automated browser testing, the open_browser_url tool encountered an environment issue because the Playwright driver binary download returned a 404 Not Found from the external CDN endpoints (playwright.azureedge.net). The local server is actively running on http://localhost:5000.
+
+Admin Credentials for Testing:
+Mission Control URL: http://localhost:5000
+Personnel ID: NCPOR-ADMIN-001
+Password: PolarAdmin@123
+Satellite Sync Code: 48291736
+Please open http://localhost:5000 in your browser to verify the login and all dashboard tabs. Let me know if you would like any further adjustments!

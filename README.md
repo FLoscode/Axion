@@ -119,7 +119,6 @@ pip install -r requirements.txt
 
 ### 2. Launch Mission Control
 ```bash
-python app - Copy.py
 python app.py
 ```
 
@@ -128,16 +127,6 @@ Open your browser and navigate to:
 ```
 http://localhost:5000
 ```
-
-### Alternative
-1. Download app.py in your machine.
-2. Run the app.py and allow network access. 
-3. the cmd will provide a localhost:5000 or any port of your choice - 8080, 2000, 5000 etc
-4. the application will start.
-**REMEMBER : TO ALWAYS DOWNLOAD THE STATIC.ZIP IN THE SAME DRIVE, DO NOT RUN THE PROGRAM WITHOUT FIRST DOWNLOADING STATIC.ZIP**
-
-
-
 
 
 *(c) 2024–2026 Axion_fc Team. Designed for the Smart India Hackathon.*

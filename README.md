@@ -118,7 +118,7 @@ pip install -r requirements.txt
 
 ### 2. Launch Mission Control
 ```bash
-python appv2.py
+python app.py
 ```
 
 ### 3. Open Dashboard
@@ -128,11 +128,11 @@ http://localhost:5000
 ```
 
 ### Alternative
-1. Download appv2.py in your machine.
-2. Run the appv2.py and allow network access. 
+1. Download app.py in your machine.
+2. Run the app.py and allow network access. 
 3. the cmd will provide a localhost:5000 or any port of your choice - 8080, 2000, 5000 etc
 4. the application will start.
-
+**REMEMBER : TO ALWAYS DOWNLOAD THE STATIC.ZIP IN THE SAME DRIVE, DO NOT RUN THE PROGRAM WITHOUT FIRST DOWNLOADING STATIC.ZIP**
 
 
 

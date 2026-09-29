@@ -26,6 +26,7 @@ import random
 import math
 import json
 import threading
+import zipfile
 from datetime import datetime, timezone
 from collections import deque
 
@@ -44,28 +45,86 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 from flask import Flask, jsonify, send_from_directory, request
 
 # ---------------------------------------------------------------------------
-# Directories & Path Setup
+# Directories, Path Setup & Auto-Extraction
 # ---------------------------------------------------------------------------
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(BASE_DIR)
 
-# Locate 3D models directory (prefer local, fallback to parent)
-if os.path.exists(os.path.join(BASE_DIR, '3d_models')):
-    MODELS_DIR = os.path.join(BASE_DIR, '3d_models')
-elif os.path.exists(os.path.join(PARENT_DIR, '3d_models')):
-    MODELS_DIR = os.path.join(PARENT_DIR, '3d_models')
-else:
-    MODELS_DIR = os.path.join(BASE_DIR, '3d_models')
+SEARCH_ROOTS = [
+    BASE_DIR,
+    PARENT_DIR,
+    os.path.join(PARENT_DIR, 'Dashboard (branch 1)'),
+    os.path.join(BASE_DIR, 'Dashboard (branch 1)'),
+]
 
-# Locate and add cybersecurity_gateway to sys.path
-gateway_dirs = [
+def auto_extract_if_needed(target_dirname, zip_filenames):
+    """
+    Checks if target directory exists with content.
+    If not, searches for corresponding zip file in search roots and auto-extracts it.
+    """
+    # 1. Check if directory already exists with content in any search root
+    for root in SEARCH_ROOTS:
+        target_path = os.path.join(root, target_dirname)
+        if os.path.isdir(target_path) and os.listdir(target_path):
+            return target_path
+
+    # 2. Search for the zip file to auto-extract
+    for root in SEARCH_ROOTS:
+        for z_name in zip_filenames:
+            z_path = os.path.join(root, z_name)
+            if os.path.isfile(z_path):
+                print(f"[INIT] Auto-extracting missing '{target_dirname}' from {z_name}...")
+                try:
+                    with zipfile.ZipFile(z_path, 'r') as zf:
+                        zf.extractall(BASE_DIR)
+                    extracted_path = os.path.join(BASE_DIR, target_dirname)
+                    if os.path.isdir(extracted_path):
+                        print(f"[INIT] Successfully extracted '{target_dirname}' into {BASE_DIR}.")
+                        return extracted_path
+                except Exception as e:
+                    print(f"[WARN] Failed to auto-extract {z_path}: {e}")
+
+    return os.path.join(BASE_DIR, target_dirname)
+
+
+# 1. Resolve 3D models directory (auto-extract from 3d_models.zip if missing)
+MODELS_DIR = auto_extract_if_needed('3d_models', ['3d_models.zip', 'Bharati Research Station Model (1).zip'])
+
+# 2. Resolve cybersecurity gateway (auto-extract from cybersecurity_gateway.zip if missing)
+GATEWAY_DIR = auto_extract_if_needed('cybersecurity_gateway', ['cybersecurity_gateway.zip'])
+
+# 3. Resolve static directory (auto-extract from static.zip if missing)
+STATIC_DIR = auto_extract_if_needed('static', ['static.zip'])
+
+# Add cybersecurity_gateway directories to sys.path
+for g_dir in [
+    BASE_DIR,
+    PARENT_DIR,
+    GATEWAY_DIR,
+    os.path.join(GATEWAY_DIR, 'cybersecurity_gateway'),
     os.path.join(BASE_DIR, 'cybersecurity_gateway'),
     os.path.join(PARENT_DIR, 'cybersecurity_gateway'),
-]
-for g_dir in gateway_dirs:
-    if os.path.exists(g_dir) and g_dir not in sys.path:
+]:
+    if os.path.isdir(g_dir) and g_dir not in sys.path:
         sys.path.insert(0, g_dir)
+
+
+def locate_index_file():
+    """Finds index.html across potential directories."""
+    candidates = [
+        os.path.join(STATIC_DIR, 'index.html'),
+        os.path.join(BASE_DIR, 'static', 'index.html'),
+        os.path.join(PARENT_DIR, 'static', 'index.html'),
+        os.path.join(PARENT_DIR, 'Dashboard (branch 1)', 'static', 'index.html'),
+        os.path.join(BASE_DIR, 'web.html'),
+        os.path.join(PARENT_DIR, 'index.html'),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.dirname(c), os.path.basename(c)
+    return STATIC_DIR, 'index.html'
+
 
 # ---------------------------------------------------------------------------
 # Flask App Initialization
@@ -73,9 +132,21 @@ for g_dir in gateway_dirs:
 
 app = Flask(
     __name__,
-    static_folder=os.path.join(BASE_DIR, 'static'),
+    static_folder=STATIC_DIR,
     static_url_path='/static'
 )
+
+# Enable CORS for all routes so cross-origin or local fetches never fail
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+    return response
+
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return ('', 204)
 
 # Attempt to register real Cybersecurity Gateway blueprint
 gateway_registered = False
@@ -93,15 +164,70 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 
 @app.route('/')
+@app.route('/index.html')
 def index():
     """Serve the unified dashboard & login interface."""
-    return send_from_directory(os.path.join(BASE_DIR, 'static'), 'index.html')
+    static_dir, filename = locate_index_file()
+    target = os.path.join(static_dir, filename)
+    if os.path.isfile(target):
+        return send_from_directory(static_dir, filename)
+
+    # Diagnostic troubleshooting page if static/index.html is completely missing
+    return """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PolarTwin-OS | Setup Diagnostics</title>
+    <style>
+        body { background: #060a13; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: #0d1117; border: 1px solid #ef4444; border-radius: 12px; padding: 32px; max-width: 640px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        h1 { color: #f87171; margin-top: 0; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+        p { line-height: 1.6; font-size: 15px; }
+        code { background: #161b22; color: #22d3ee; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        .btn { display: inline-block; background: #22d3ee; color: #000; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 16px; margin-right: 10px; }
+        .status { color: #34d399; font-weight: bold; }
+        .steps { background: #161b22; border-left: 3px solid #22d3ee; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+        .steps li { margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>⚠️ static/index.html Not Found</h1>
+        <p>The backend Python server is running (<span class="status">ONLINE</span>), but the frontend UI file (<code>static/index.html</code>) was not found on this machine/drive.</p>
+        <p><strong>Why did this happen?</strong><br>
+        When files were downloaded from GitHub, the <code>static/</code> directory was missing from the repository, causing a 404 error.</p>
+        <div class="steps">
+            <strong>How to fix:</strong>
+            <ol>
+                <li>Copy the <code>static/</code> folder (or <code>static.zip</code>) from your primary computer into this project directory.</li>
+                <li>Refresh this page (<a href="/" style="color:#22d3ee">http://localhost:5000</a>).</li>
+            </ol>
+        </div>
+        <a class="btn" href="/api/logistics/summary">Check Backend API (/api/logistics/summary)</a>
+    </div>
+</body>
+</html>""", 404
 
 
 @app.route('/models/<path:filename>')
 def serve_model(filename):
     """Serve 3D model files (OBJ, MTL) for Bharati and Maitri stations."""
+    global MODELS_DIR
+    target = os.path.join(MODELS_DIR, filename)
+    if not os.path.isfile(target):
+        MODELS_DIR = auto_extract_if_needed('3d_models', ['3d_models.zip', 'Bharati Research Station Model (1).zip'])
+        for root in SEARCH_ROOTS:
+            cand = os.path.join(root, '3d_models', filename)
+            if os.path.isfile(cand):
+                return send_from_directory(os.path.dirname(cand), os.path.basename(cand))
     return send_from_directory(MODELS_DIR, filename)
+
+
+@app.route('/static/<path:filename>')
+def serve_static_assets(filename):
+    """Serve arbitrary static assets from STATIC_DIR."""
+    return send_from_directory(STATIC_DIR, filename)
+
 
 
 # ---------------------------------------------------------------------------

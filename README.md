@@ -110,7 +110,6 @@ PolarTwin-OS features role-based access control out of the box:
 ```bash
 # Clone the repository
 gh repo clone FLoscode/Axion
-https://github.com/FLoscode/Axion.git
 cd PolarTwin-OS
 
 # Install dependencies
@@ -119,7 +118,7 @@ pip install -r requirements.txt
 
 ### 2. Launch Mission Control
 ```bash
-python app - Copy.py
+python appv2.py
 ```
 
 ### 3. Open Dashboard
@@ -127,5 +126,16 @@ Open your browser and navigate to:
 ```
 http://localhost:5000
 ```
+
+### Alternative
+1. Download appv2.py in your machine.
+2. Run the appv2.py and allow network access. 
+3. the cmd will provide a localhost:5000 or any port of your choice - 8080, 2000, 5000 etc
+4. the application will start.
+
+
+
+
+
 
 *(c) 2024–2026 Axion_fc Team. Designed for the Smart India Hackathon.*

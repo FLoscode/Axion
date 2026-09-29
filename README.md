@@ -110,6 +110,7 @@ PolarTwin-OS features role-based access control out of the box:
 ```bash
 # Clone the repository
 gh repo clone FLoscode/Axion
+https://github.com/FLoscode/Axion.git
 cd PolarTwin-OS
 
 # Install dependencies
@@ -118,6 +119,7 @@ pip install -r requirements.txt
 
 ### 2. Launch Mission Control
 ```bash
+python app - Copy.py
 python app.py
 ```
 

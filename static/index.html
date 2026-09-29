@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolarTwin-OS | Antarctic Mission Control</title>
+    <meta name="description"
+        content="Digital Platform for Remote Management & Digital Twin of Indian Antarctic Research Stations — Bharati &amp; Maitri">
+
+    <!-- React & ReactDOM 18 -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Three.js + Loaders (r128 for global THREE namespace) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+                    },
+                    colors: {
+                        darkbg: '#060a13',
+                        panelbg: '#0d1117',
+                        panelalt: '#111826',
+                        panelborder: '#1e293b',
+                        cyan: { DEFAULT: '#22d3ee', dim: 'rgba(34,211,238,0.15)' },
+                        purple: { DEFAULT: '#a855f7', dim: 'rgba(168,85,247,0.15)' },
+                        green: { DEFAULT: '#10b981', dim: 'rgba(16,185,129,0.15)' },
+                        yellow: { DEFAULT: '#eab308', dim: 'rgba(234,179,8,0.15)' },
+                        red: { DEFAULT: '#ef4444', dim: 'rgba(239,68,68,0.15)' },
+                    },
+                },
+            },
+        };
+    </script>
+
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #060a13;
+            color: #94a3b8;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        /* =========================================================
+           DASHBOARD PANELS & UI
+        ========================================================= */
+        .panel {
+            background: linear-gradient(145deg, rgba(13, 17, 23, 0.95) 0%, rgba(17, 24, 38, 0.85) 100%);
+            border-radius: 0.875rem;
+            border: 1px solid #1e293b;
+            position: relative;
+            box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+        }
+
+        .panel:hover {
+            border-color: #334155;
+        }
+
+        /* Corner brackets */
+        .corner-tl, .corner-tr, .corner-bl, .corner-br {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-color: #475569;
+            border-style: solid;
+            pointer-events: none;
+        }
+
+        .corner-tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-top-left-radius: 0.875rem; }
+        .corner-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; border-top-right-radius: 0.875rem; }
+        .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; border-bottom-left-radius: 0.875rem; }
+        .corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-bottom-right-radius: 0.875rem; }
+
+        .custom-input {
+            background-color: #0a0f18;
+            border: 1px solid #1e293b;
+            color: #f8fafc;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .custom-input:focus {
+            outline: none;
+            border-color: #22d3ee;
+            box-shadow: 0 0 0 1px #22d3ee;
+        }
+
+        .btn {
+            background-color: transparent;
+            border: 1px solid #374151;
+            color: #94a3b8;
+            padding: 0.375rem 0.875rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn:hover {
+            border-color: #6b7280;
+            color: #f8fafc;
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .btn-active {
+            background-color: rgba(34, 211, 238, 0.12);
+            border-color: #22d3ee;
+            color: #22d3ee;
+        }
+
+        .status-pill {
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid #1e293b;
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+        }
+
+        /* Circular gauge */
+        .circular-chart {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #1e293b;
+            stroke-width: 3.5;
+        }
+
+        .circle {
+            fill: none;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            transition: stroke-dasharray 1s ease-out;
+        }
+
+        /* Sidebar buttons */
+        .sidebar-btn {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.65rem 0;
+            border-radius: 0.625rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #64748b;
+            gap: 0.25rem;
+        }
+
+        .sidebar-btn:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: #94a3b8;
+        }
+
+        .sidebar-btn.active {
+            background: linear-gradient(145deg, rgba(34, 211, 238, 0.12), rgba(34, 211, 238, 0.04));
+            border-color: rgba(34, 211, 238, 0.3);
+            color: #22d3ee;
+        }
+
+        .tab-content {
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 4px currentColor; }
+            50% { box-shadow: 0 0 12px currentColor; }
+        }
+
+        .pulse-dot {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes spin3d { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid #1e293b;
+            border-top-color: #22d3ee;
+            border-radius: 50%;
+            animation: spin3d 0.8s linear infinite;
+        }
+
+        /* 3D viewer container: full box fill */
+        .viewer-container {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden;
+        }
+
+        .viewer-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0.875rem;
+            display: block;
+        }
+
+        /* =========================================================
+           POLARTWIN-OS AUTH / LOGIN STYLES (from web.html)
+        ========================================================= */
+        .login-page-bg {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background:
+                linear-gradient(110deg, rgba(2, 12, 28, 0.96), rgba(3, 25, 48, 0.85), rgba(0, 14, 30, 0.96)),
+                url("https://images.unsplash.com/photo-1517783999520-f068d7431a60?auto=format&fit=crop&w=2200&q=85")
+                center / cover fixed;
+            position: relative;
+        }
+
+        .login-page-bg::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0, 220, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 220, 255, 0.035) 1px, transparent 1px);
+            background-size: 45px 45px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .login-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1080px;
+            min-height: 640px;
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            background: rgba(3, 16, 34, 0.88);
+            border: 1px solid rgba(0, 220, 255, 0.28);
+            border-radius: 18px;
+            overflow: hidden;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 0 50px rgba(0, 210, 255, 0.12), inset 0 0 40px rgba(0, 210, 255, 0.025);
+        }
+
+        @media (max-width: 860px) {
+            .login-wrapper { grid-template-columns: 1fr; }
+            .mission-panel { display: none; }
+        }
+
+        .mission-panel {
+            padding: 48px;
+            position: relative;
+            background: linear-gradient(135deg, rgba(0, 25, 49, 0.9), rgba(2, 12, 27, 0.7));
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .logo-box {
+            width: 44px; height: 44px;
+            border: 2px solid #00eaff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #00eaff;
+            font-weight: 800;
+            font-size: 18px;
+            box-shadow: 0 0 18px rgba(0, 234, 255, 0.35);
+        }
+
+        .status-card-login {
+            padding: 14px;
+            border: 1px solid rgba(0, 220, 255, 0.15);
+            background: rgba(0, 220, 255, 0.04);
+            border-radius: 8px;
+        }
+
+        .status-card-login small {
+            display: block;
+            color: #658294;
+            font-size: 9px;
+            letter-spacing: 1.5px;
+            margin-bottom: 5px;
+        }
+
+        .status-card-login strong {
+            font-size: 12px;
+            color: #d9faff;
+        }
+
+        .login-panel {
+            padding: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(1, 9, 21, 0.85);
+            border-left: 1px solid rgba(0, 220, 255, 0.12);
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .access-choice {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .access-option {
+            padding: 14px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 1px solid rgba(0, 220, 255, 0.15);
+            background: rgba(0, 220, 255, 0.02);
+            text-align: center;
+            transition: all 0.25s;
+        }
+
+        .access-option:hover {
+            border-color: rgba(0, 220, 255, 0.35);
+            background: rgba(0, 220, 255, 0.06);
+        }
+
+        .access-option.active {
+            border-color: #00eaff;
+            background: rgba(0, 234, 255, 0.1);
+            box-shadow: 0 0 16px rgba(0, 234, 255, 0.2);
+        }
+
+        .access-option strong {
+            display: block;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #dff8ff;
+            margin-top: 4px;
+        }
+
+        .access-option small {
+            font-size: 9px;
+            color: #6c8a9c;
+        }
+
+        .login-field {
+            margin-bottom: 16px;
+        }
+
+        .login-field label {
+            display: block;
+            color: #94aebe;
+            font-size: 10px;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .login-field input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 220, 255, 0.18);
+            background: rgba(2, 16, 32, 0.7);
+            color: #eafcff;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .login-field input:focus {
+            border-color: #00eaff;
+            box-shadow: 0 0 12px rgba(0, 234, 255, 0.25);
+        }
+
+        .primary-login-btn {
+            width: 100%;
+            padding: 13px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            letter-spacing: 1px;
+            font-size: 12px;
+            color: #001220;
+            background: linear-gradient(90deg, #00eaff, #00bfff);
+            box-shadow: 0 0 20px rgba(0, 234, 255, 0.35);
+            transition: all 0.25s;
+            margin-top: 10px;
+        }
+
+        .primary-login-btn:hover {
+            box-shadow: 0 0 28px rgba(0, 234, 255, 0.55);
+            transform: translateY(-1px);
+        }
+
+        .secondary-login-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 220, 255, 0.2);
+            background: transparent;
+            color: #8faec0;
+            font-size: 11px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+
+        .secondary-login-btn:hover {
+            color: #eafcff;
+            border-color: rgba(0, 220, 255, 0.4);
+            background: rgba(0, 220, 255, 0.04);
+        }
+
+        .login-error {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(255, 77, 77, 0.12);
+            border: 1px solid rgba(255, 77, 77, 0.3);
+            border-radius: 6px;
+            color: #ff6b6b;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .login-success {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(57, 245, 178, 0.12);
+            border: 1px solid rgba(57, 245, 178, 0.3);
+            border-radius: 6px;
+            color: #39f5b2;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .otp-input {
+            letter-spacing: 8px;
+            text-align: center;
+            font-size: 22px !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-weight: 700;
+        }
+
+        /* Radar circle animations */
+        @keyframes radar-sweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .radar-line {
+            transform-origin: 200px 200px;
+            animation: radar-sweep 6s linear infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+        // =====================================================================
+        // CREDENTIALS & CONSTANTS
+        // =====================================================================
+        const ADMIN_CREDENTIALS = {
+            id: "NCPOR-ADMIN-001",
+            password: "PolarAdmin@123",
+            satelliteSyncCode: "48291736",
+            role: "Operational Commander",
+            clearance: "LEVEL 4 RESTRICTED"
+        };
+
+        const INITIAL_DATA = {
+            stations: [
+                {
+                    id: 'bharati', name: 'BHARATI STATION',
+                    coordinates: '69°24′28″S 76°11′14″E',
+                    sensors: [
+                        { id: 's1', name: 'IoT Sensor', status: 'OK' },
+                        { id: 's2', name: 'Thermal Sensor', status: 'WARN' },
+                        { id: 's3', name: 'Temp Sensor', status: 'OK' },
+                        { id: 's4', name: 'Vibration Monitor', status: 'OK' },
+                    ],
+                },
+                {
+                    id: 'maitri', name: 'MAITRI STATION',
+                    coordinates: '70°45′58″S 11°44′09″E',
+                    sensors: [
+                        { id: 's5', name: 'IoT Sensor', status: 'FAULT' },
+                        { id: 's6', name: 'Thermal Sensor', status: 'WARN' },
+                        { id: 's7', name: 'Temp Sensor', status: 'OK' },
+                    ],
+                },
+            ],
+            generators: [
+                { name: 'Gen 1', output: 160 },
+                { name: 'Gen 2', output: 155 },
+                { name: 'Gen 3', output: 50 },
+                { name: 'Gen 4', output: 48 },
+            ],
+            utility: { load: 70, reserve: 75 },
+            uptime: [
+                { time: '16:47:10', Bharati: 24, Maitri: 19 },
+                { time: '16:47:18', Bharati: 23, Maitri: 18 },
+                { time: '16:47:23', Bharati: 24, Maitri: 16 },
+                { time: '16:47:31', Bharati: 23, Maitri: 14 },
+                { time: '17:06:39', Bharati: 21, Maitri: 15 },
+            ],
+        };
+
+        const BATTERY_DATA = [
+            { name: 'CookHouse', value: 35, color: '#eab308' },
+            { name: 'Warehouse', value: 25, color: '#22d3ee' },
+            { name: 'BioLab', value: 25, color: '#a855f7' },
+            { name: 'Waste Ref', value: 15, color: '#10b981' },
+        ];
+
+        // All 5 core navigation tabs
+        const TABS = [
+            { id: 'overview',    label: 'Overview',    icon: 'grid' },
+            { id: 'models',      label: '3D Models',   icon: 'cube' },
+            { id: 'logistics',   label: 'Logistics',   icon: 'truck' },
+            { id: 'security',    label: 'Security',    icon: 'shield' },
+            { id: 'maintenance', label: 'Maintenance', icon: 'wrench' },
+        ];
+
+        // =====================================================================
+        // ICON COMPONENTS (inline SVG)
+        // =====================================================================
+        const Icons = {
+            grid: ({ size = 20 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+            ),
+            cube: ({ size = 20 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+            ),
+            truck: ({ size = 20 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="3" width="15" height="13" rx="1" />
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                    <circle cx="5.5" cy="18.5" r="2.5" />
+                    <circle cx="18.5" cy="18.5" r="2.5" />
+                </svg>
+            ),
+            shield: ({ size = 20 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+            ),
+            wrench: ({ size = 20 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+            ),
+            ship: ({ size = 18 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+                    <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.02" />
+                    <path d="M12 10V4" /><path d="M12 4H8" />
+                </svg>
+            ),
+            users: ({ size = 18 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+            ),
+            fuel: ({ size = 18 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3" y1="22" x2="15" y2="22" /><line x1="4" y1="9" x2="14" y2="9" />
+                    <path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18" />
+                    <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5" />
+                </svg>
+            ),
+            satellite: ({ size = 18 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 7l5 5" /><path d="M9 11l4 4" />
+                    <path d="M8 12l-5 5a2 2 0 0 0 0 2.83l1.17 1.17a2 2 0 0 0 2.83 0l5-5" />
+                    <path d="M16 4l4 4a2 2 0 0 1 0 2.83l-1.17 1.17a2 2 0 0 1-2.83 0l-4-4a2 2 0 0 1 0-2.83l1.17-1.17a2 2 0 0 1 2.83 0z" />
+                </svg>
+            ),
+            logout: ({ size = 16 }) => (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+            ),
+            check: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                </svg>
+            ),
+            alert: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+            ),
+            rotate: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+            ),
+            save: () => (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                </svg>
+            ),
+        };
+
+        // =====================================================================
+        // CHART COMPONENTS (Overview)
+        // =====================================================================
+        const GeneratorChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                if (chartRef.current) chartRef.current.destroy();
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.name),
+                        datasets: [{
+                            data: data.map(d => Math.round(d.output)),
+                            backgroundColor: ['#22d3ee', '#38bdf8', '#a855f7', '#c084fc'],
+                            borderRadius: 6,
+                            barThickness: 28,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 11 } } },
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 11 } }, max: 200 },
+                        },
+                    },
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data]);
+
+            return <div className="h-44"><canvas ref={canvasRef} /></div>;
+        };
+
+        const BatteryChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                if (chartRef.current) chartRef.current.destroy();
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(d => d.name),
+                        datasets: [{
+                            data: data.map(d => d.value),
+                            backgroundColor: data.map(d => d.color),
+                            borderWidth: 0,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        plugins: { legend: { display: false } },
+                    },
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data]);
+
+            return <div className="h-40"><canvas ref={canvasRef} /></div>;
+        };
+
+        const UptimeChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+                if (chartRef.current) chartRef.current.destroy();
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.time),
+                        datasets: [
+                            {
+                                label: 'Bharati',
+                                data: data.map(d => d.Bharati),
+                                borderColor: '#22d3ee',
+                                backgroundColor: 'rgba(34, 211, 238, 0.08)',
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 3,
+                            },
+                            {
+                                label: 'Maitri',
+                                data: data.map(d => d.Maitri),
+                                borderColor: '#a855f7',
+                                backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 3,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                        },
+                    },
+                });
+
+                return () => { if (chartRef.current) chartRef.current.destroy(); };
+            }, [data]);
+
+            return <div className="h-48"><canvas ref={canvasRef} /></div>;
+        };
+
+        const CircularGauge = ({ percentage, label = 'Load', size = 140, color = '#22d3ee' }) => {
+            const strokeWidth = 10;
+            const radius = (size - strokeWidth) / 2;
+            const viewBox = `0 0 ${size} ${size}`;
+            const dashArray = radius * Math.PI * 2;
+            const dashOffset = dashArray - (dashArray * percentage) / 100;
+
+            return (
+                <div className="relative inline-flex items-center justify-center">
+                    <svg width={size} height={size} viewBox={viewBox} className="circular-chart">
+                        <circle className="circle-bg" cx={size / 2} cy={size / 2} r={radius} />
+                        <circle
+                            className="circle"
+                            stroke={color}
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            strokeDasharray={dashArray}
+                            strokeDashoffset={dashOffset}
+                            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                        />
+                    </svg>
+                    <div className="absolute flex flex-col items-center">
+                        <span className="text-2xl font-bold font-mono text-white">{percentage}%</span>
+                        <span className="text-[10px] tracking-widest uppercase text-gray-400 font-semibold">{label}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        const StationCard = ({ station, onAddSensor, onRemoveSensor, onRemoveStation }) => {
+            const [newSensor, setNewSensor] = useState('');
+            const handleAdd = () => {
+                if (newSensor.trim()) {
+                    onAddSensor(station.id, newSensor.trim());
+                    setNewSensor('');
+                }
+            };
+
+            const statusColors = {
+                OK: 'border-green/40 text-green bg-green/10',
+                WARN: 'border-yellow/40 text-yellow bg-yellow/10',
+                FAULT: 'border-red/40 text-red bg-red/10',
+            };
+
+            return (
+                <div className="panel p-5">
+                    <div className="corner-tl" /><div className="corner-tr" /><div className="corner-bl" /><div className="corner-br" />
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-panelborder">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-cyan pulse-dot" />
+                            <h3 className="font-bold text-sm tracking-wider text-white uppercase">{station.name}</h3>
+                        </div>
+                        <span className="text-[10px] font-mono text-gray-500">{station.coordinates || 'POLAR BASE'}</span>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                        {station.sensors.map(sensor => (
+                            <div key={sensor.id} className="flex items-center justify-between py-1.5 px-3 rounded bg-darkbg/60 border border-panelborder text-xs">
+                                <span className="text-gray-300 font-medium">{sensor.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`status-pill ${statusColors[sensor.status] || ''}`}>{sensor.status}</span>
+                                    <button onClick={() => onRemoveSensor(station.id, sensor.id)} className="text-gray-500 hover:text-red transition-colors text-xs font-bold px-1">✕</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Add sensor..."
+                            value={newSensor}
+                            onChange={(e) => setNewSensor(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                            className="custom-input flex-1 text-xs py-1.5"
+                        />
+                        <button onClick={handleAdd} className="btn text-xs px-3 text-cyan border-cyan/40 hover:bg-cyan/10">+ Add</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const Panel = ({ title, subtitle, children, className = '' }) => (
+            <div className={`panel p-5 ${className}`}>
+                <div className="corner-tl" /><div className="corner-tr" /><div className="corner-bl" /><div className="corner-br" />
+                {(title || subtitle) && (
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-panelborder">
+                        <h3 className="font-semibold text-xs tracking-wider text-white uppercase">{title}</h3>
+                        {subtitle && <span className="text-[10px] text-gray-500 font-mono">{subtitle}</span>}
+                    </div>
+                )}
+                {children}
+            </div>
+        );
+
+        // =====================================================================
+        // TAB 1: OVERVIEW TAB (Clean rounded kW, Tactical actions moved to Logistics)
+        // =====================================================================
+        const OverviewTab = ({ data, onAddSensor, onRemoveSensor, onRemoveStation, onAddStation }) => (
+            <div className="tab-content grid grid-cols-1 xl:grid-cols-12 gap-6">
+                {/* Station Columns (4 cols) */}
+                <div className="xl:col-span-4 space-y-6">
+                    {data.stations.map(station => (
+                        <StationCard
+                            key={station.id}
+                            station={station}
+                            onAddSensor={onAddSensor}
+                            onRemoveSensor={onRemoveSensor}
+                            onRemoveStation={onRemoveStation}
+                        />
+                    ))}
+                    <button
+                        onClick={onAddStation}
+                        className="w-full py-3 border border-dashed border-panelborder rounded-xl text-xs text-gray-400 hover:text-cyan hover:border-cyan/40 hover:bg-cyan/5 transition-all flex items-center justify-center gap-2">
+                        + Deploy Remote Station Link
+                    </button>
+                </div>
+
+                {/* Telemetry Center (5 cols) */}
+                <div className="xl:col-span-5 space-y-6">
+                    <Panel title="Generator Power Output" subtitle="KWH MONITOR">
+                        <GeneratorChart data={data.generators} />
+                        {/* Fix: Rounded clean generator outputs with NO long decimals */}
+                        <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-panelborder text-center">
+                            {data.generators.map(g => (
+                                <div key={g.name} className="p-2.5 rounded-lg bg-darkbg/60 border border-panelborder/60">
+                                    <div className="text-[10px] text-gray-400 font-semibold mb-0.5">{g.name}</div>
+                                    <div className="text-sm font-bold font-mono text-cyan">
+                                        {Math.round(g.output)} <span className="text-[9px] font-normal text-gray-500">kW</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Panel>
+
+                    <Panel title="Station Telemetry Uptime" subtitle="LIVE FEED LATENCY">
+                        <UptimeChart data={data.uptime} />
+                        <div className="flex items-center justify-center gap-6 mt-3 text-xs">
+                            <span className="flex items-center gap-2 text-cyan font-mono"><span className="w-2 h-2 rounded-full bg-cyan" /> Bharati Node</span>
+                            <span className="flex items-center gap-2 text-purple font-mono"><span className="w-2 h-2 rounded-full bg-purple" /> Maitri Node</span>
+                        </div>
+                    </Panel>
+                </div>
+
+                {/* Right Metrics (3 cols) — Cleaned up (Tactical Actions moved to Logistics) */}
+                <div className="xl:col-span-3 space-y-6">
+                    <Panel title="Utility Power & Reserve" subtitle="REAL-TIME LOAD">
+                        <div className="flex flex-col sm:flex-row xl:flex-col items-center justify-around gap-6 py-4">
+                            <CircularGauge percentage={data.utility.load} label="Load Capacity" color="#22d3ee" />
+                            <CircularGauge percentage={data.utility.reserve} label="Reserve Bank" color="#10b981" />
+                        </div>
+                    </Panel>
+
+                    <Panel title="Battery Distribution" subtitle="SECTOR SPLIT">
+                        <BatteryChart data={BATTERY_DATA} />
+                        <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-panelborder text-xs">
+                            {BATTERY_DATA.map(b => (
+                                <div key={b.name} className="flex items-center gap-2 p-1">
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: b.color }} />
+                                    <span className="text-gray-400">{b.name}</span>
+                                    <span className="font-mono text-white ml-auto">{b.value}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    </Panel>
+                </div>
+            </div>
+        );
+
+        // =====================================================================
+        // TAB 2: 3D MODEL VIEWER TAB (Fixed full box height & resize handling)
+        // =====================================================================
+        const ModelViewerTab = ({ active }) => {
+            const containerRef = useRef(null);
+            const rendererRef = useRef(null);
+            const sceneRef = useRef(null);
+            const cameraRef = useRef(null);
+            const controlsRef = useRef(null);
+            const animRef = useRef(null);
+            const loadIdRef = useRef(0);
+            const [activeStation, setActiveStation] = useState('bharati');
+            const [loading, setLoading] = useState(true);
+            const [progress, setProgress] = useState(0);
+            const [autoRotate, setAutoRotate] = useState(true);
+            const [wireframe, setWireframe] = useState(false);
+
+            // Responsive resize function to guarantee full box filling
+            const updateRendererSize = useCallback(() => {
+                if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+                const container = containerRef.current;
+                const w = container.clientWidth || container.offsetWidth;
+                const h = container.clientHeight || container.offsetHeight;
+                if (w > 0 && h > 0) {
+                    cameraRef.current.aspect = w / h;
+                    cameraRef.current.updateProjectionMatrix();
+                    rendererRef.current.setSize(w, h, false);
+                }
+            }, []);
+
+            const loadModel = useCallback((station) => {
+                const scene = sceneRef.current;
+                if (!scene) return;
+                const currentLoadId = ++loadIdRef.current;
+
+                const existingModel = scene.getObjectByName('stationModel');
+                if (existingModel) {
+                    scene.remove(existingModel);
+                    existingModel.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                }
+
+                setLoading(true);
+                setProgress(0);
+
+                const mtlLoader = new THREE.MTLLoader();
+                mtlLoader.setPath(`/models/${station}/`);
+                mtlLoader.load('obj.mtl', (materials) => {
+                    if (loadIdRef.current !== currentLoadId) return;
+                    materials.preload();
+                    setProgress(40);
+
+                    const objLoader = new THREE.OBJLoader();
+                    objLoader.setMaterials(materials);
+                    objLoader.load(`/models/${station}/tinker.obj`, (object) => {
+                        if (loadIdRef.current !== currentLoadId) return;
+                        object.name = 'stationModel';
+                        object.rotation.x = -Math.PI / 2;
+                        object.updateMatrixWorld(true);
+
+                        const box = new THREE.Box3().setFromObject(object);
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        // Scale to 24 units for prominent display
+                        const scale = 24 / (maxDim || 1);
+                        object.scale.set(scale, scale, scale);
+                        object.updateMatrixWorld(true);
+
+                        const scaledBox = new THREE.Box3().setFromObject(object);
+                        const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+                        object.position.x = -scaledCenter.x;
+                        object.position.y = -scaledBox.min.y;
+                        object.position.z = -scaledCenter.z;
+
+                        object.traverse(child => {
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                if (wireframe && child.material) {
+                                    child.material.wireframe = true;
+                                }
+                            }
+                        });
+
+                        scene.add(object);
+                        if (cameraRef.current && controlsRef.current) {
+                            cameraRef.current.position.set(24, 15, 24);
+                            controlsRef.current.target.set(0, 3, 0);
+                            controlsRef.current.update();
+                        }
+                        setLoading(false);
+                        setProgress(100);
+                        updateRendererSize();
+                    },
+                    (xhr) => {
+                        if (loadIdRef.current !== currentLoadId) return;
+                        if (xhr.lengthComputable) {
+                            setProgress(40 + Math.round((xhr.loaded / xhr.total) * 60));
+                        }
+                    },
+                    (error) => {
+                        console.error('Error loading 3D model:', error);
+                        setLoading(false);
+                    });
+                });
+            }, [wireframe, updateRendererSize]);
+
+            useEffect(() => {
+                if (!containerRef.current) return;
+                const container = containerRef.current;
+
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x060a13);
+                scene.fog = new THREE.FogExp2(0x060a13, 0.02);
+                sceneRef.current = scene;
+
+                const initialW = container.clientWidth || 800;
+                const initialH = container.clientHeight || 600;
+
+                const camera = new THREE.PerspectiveCamera(50, initialW / initialH, 0.1, 1000);
+                camera.position.set(24, 15, 24);
+                cameraRef.current = camera;
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(initialW, initialH, false);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                container.appendChild(renderer.domElement);
+                rendererRef.current = renderer;
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                scene.add(ambientLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+                dirLight.position.set(20, 30, 20);
+                dirLight.castShadow = true;
+                scene.add(dirLight);
+
+                const fillLight = new THREE.DirectionalLight(0x4488ff, 0.45);
+                fillLight.position.set(-20, 15, -20);
+                scene.add(fillLight);
+
+                const rimLight = new THREE.DirectionalLight(0x22d3ee, 0.4);
+                rimLight.position.set(0, 10, -25);
+                scene.add(rimLight);
+
+                // Expanded ground grid covering entire viewport
+                const grid = new THREE.GridHelper(44, 44, 0x22d3ee, 0x1e293b);
+                grid.position.y = 0;
+                scene.add(grid);
+
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.08;
+                controls.minDistance = 6;
+                controls.maxDistance = 75;
+                controls.autoRotate = autoRotate;
+                controls.autoRotateSpeed = 0.6;
+                controls.maxPolarAngle = Math.PI / 1.7;
+                controls.target.set(0, 3, 0);
+                controlsRef.current = controls;
+
+                const animate = () => {
+                    animRef.current = requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                // ResizeObserver ensures 100% full-box coverage at all times
+                const ro = new ResizeObserver(() => {
+                    updateRendererSize();
+                });
+                ro.observe(container);
+
+                window.addEventListener('resize', updateRendererSize);
+                loadModel('bharati');
+
+                return () => {
+                    ro.disconnect();
+                    window.removeEventListener('resize', updateRendererSize);
+                    cancelAnimationFrame(animRef.current);
+                    controls.dispose();
+                    renderer.dispose();
+                    if (container && renderer.domElement.parentNode === container) {
+                        container.removeChild(renderer.domElement);
+                    }
+                };
+            }, []);
+
+            // Trigger size update when active tab switches to 3D Models
+            useEffect(() => {
+                if (active) {
+                    const timer1 = setTimeout(updateRendererSize, 50);
+                    const timer2 = setTimeout(updateRendererSize, 250);
+                    return () => { clearTimeout(timer1); clearTimeout(timer2); };
+                }
+            }, [active, updateRendererSize]);
+
+            useEffect(() => {
+                if (sceneRef.current) loadModel(activeStation);
+            }, [activeStation, loadModel]);
+
+            useEffect(() => {
+                if (controlsRef.current) controlsRef.current.autoRotate = autoRotate;
+            }, [autoRotate]);
+
+            const setCameraView = (type) => {
+                if (!cameraRef.current || !controlsRef.current) return;
+                const cam = cameraRef.current;
+                const ctrl = controlsRef.current;
+                if (type === 'aerial') { cam.position.set(0, 42, 1); ctrl.target.set(0, 2, 0); }
+                else if (type === 'side') { cam.position.set(34, 8, 0); ctrl.target.set(0, 3, 0); }
+                else if (type === 'front') { cam.position.set(0, 8, 34); ctrl.target.set(0, 3, 0); }
+                else if (type === 'iso') { cam.position.set(24, 15, 24); ctrl.target.set(0, 3, 0); }
+                ctrl.update();
+            };
+
+            const toggleWireframe = () => {
+                const nw = !wireframe;
+                setWireframe(nw);
+                const scene = sceneRef.current;
+                if (scene) {
+                    const model = scene.getObjectByName('stationModel');
+                    if (model) {
+                        model.traverse(child => {
+                            if (child.isMesh && child.material) {
+                                child.material.wireframe = nw;
+                            }
+                        });
+                    }
+                }
+            };
+
+            return (
+                <div className="tab-content flex flex-col space-y-3" style={{ height: 'calc(100vh - 120px)' }}>
+                    {/* Controls Bar */}
+                    <div className="panel p-3.5 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">Station:</span>
+                            <button
+                                onClick={() => setActiveStation('bharati')}
+                                className={`btn text-xs ${activeStation === 'bharati' ? 'btn-active font-bold' : ''}`}>
+                                🇮🇳 Bharati Station
+                            </button>
+                            <button
+                                onClick={() => setActiveStation('maitri')}
+                                className={`btn text-xs ${activeStation === 'maitri' ? 'btn-active font-bold' : ''}`}>
+                                🇮🇳 Maitri Station
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setAutoRotate(!autoRotate)} className={`btn text-xs ${autoRotate ? 'text-cyan border-cyan/40 bg-cyan/10' : ''}`}>
+                                ⟳ Auto-Rotate
+                            </button>
+                            <button onClick={toggleWireframe} className={`btn text-xs ${wireframe ? 'text-yellow border-yellow/40 bg-yellow/10' : ''}`}>
+                                ⛶ Wireframe
+                            </button>
+                            <div className="h-4 w-px bg-panelborder mx-1" />
+                            <span className="text-[11px] text-gray-400 hidden sm:inline">Camera:</span>
+                            <button onClick={() => setCameraView('iso')} className="btn text-xs py-1 px-2.5">Isometric</button>
+                            <button onClick={() => setCameraView('aerial')} className="btn text-xs py-1 px-2.5">Aerial</button>
+                            <button onClick={() => setCameraView('side')} className="btn text-xs py-1 px-2.5">Side</button>
+                            <button onClick={() => setCameraView('front')} className="btn text-xs py-1 px-2.5">Front</button>
+                        </div>
+                    </div>
+
+                    {/* Canvas & Overlay — Full Box Filling Container */}
+                    <div className="relative flex-1 w-full rounded-2xl overflow-hidden panel border border-panelborder min-h-[540px]">
+                        <div ref={containerRef} className="viewer-container" />
+
+                        {loading && (
+                            <div className="absolute inset-0 bg-darkbg/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10">
+                                <div className="spinner" />
+                                <span className="text-sm font-semibold text-white tracking-wider">Loading 3D Digital Twin...</span>
+                                <div className="w-52 bg-panelborder rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-cyan h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                                </div>
+                                <span className="text-xs font-mono text-cyan">{progress}%</span>
+                            </div>
+                        )}
+
+                        {/* Station Telemetry HUD Overlay */}
+                        <div className="absolute top-4 left-4 p-3.5 rounded-xl bg-darkbg/90 border border-panelborder backdrop-blur-md pointer-events-none text-xs space-y-1.5 font-mono shadow-xl">
+                            <div className="text-cyan font-bold tracking-wide uppercase flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-cyan pulse-dot" />
+                                {activeStation === 'bharati' ? 'BHARATI RESEARCH MODULE' : 'MAITRI STATION COMPLEX'}
+                            </div>
+                            <div className="text-gray-400">Coords: <span className="text-white">{activeStation === 'bharati' ? '69°24′28″S 76°11′14″E' : '70°45′58″S 11°44′09″E'}</span></div>
+                            <div className="text-gray-400">Structural Integrity: <span className="text-green font-bold">NOMINAL 99.4%</span></div>
+                            <div className="text-gray-400">Thermal Envelope: <span className="text-cyan font-bold">+18.2°C Inside / -28.4°C Outside</span></div>
+                            <div className="text-gray-400">Power Consumption: <span className="text-yellow font-bold">142 kW (CHP Unit 1 & 2)</span></div>
+                        </div>
+
+                        <div className="absolute bottom-4 right-4 p-2.5 rounded-lg bg-darkbg/85 border border-panelborder backdrop-blur-sm text-[11px] text-gray-400 font-mono">
+                            Orbit: Left Drag | Pan: Right Drag | Zoom: Scroll
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // =====================================================================
+        // TAB 3: LOGISTICS SIMULATOR TAB (With Tactical Actions integrated)
+        // =====================================================================
+        const LogisticsTab = () => {
+            const [summary, setSummary] = useState(null);
+            const [events, setEvents] = useState([]);
+            const [eventFilter, setEventFilter] = useState('ALL');
+            const [actionMsg, setActionMsg] = useState(null);
+            const [isActionPending, setIsActionPending] = useState(false);
+
+            // Fetch summary & events every 2.5s
+            useEffect(() => {
+                let mounted = true;
+                const fetchData = async () => {
+                    try {
+                        const [sumRes, evRes] = await Promise.all([
+                            fetch('/api/logistics/summary'),
+                            fetch(`/api/logistics/events?limit=40${eventFilter !== 'ALL' ? `&type=${eventFilter}` : ''}`)
+                        ]);
+                        if (sumRes.ok && evRes.ok) {
+                            const sumJson = await sumRes.json();
+                            const evJson = await evRes.json();
+                            if (mounted) {
+                                setSummary(sumJson);
+                                setEvents(evJson.events || []);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Logistics fetch error:', e);
+                    }
+                };
+                fetchData();
+                const interval = setInterval(fetchData, 2500);
+                return () => { mounted = false; clearInterval(interval); };
+            }, [eventFilter]);
+
+            const triggerAction = async (action) => {
+                setIsActionPending(true);
+                setActionMsg(null);
+                try {
+                    const res = await fetch('/api/logistics/action', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action })
+                    });
+                    const data = await res.json();
+                    setActionMsg(data.message || 'Action executed successfully.');
+                    setTimeout(() => setActionMsg(null), 4500);
+                } catch (e) {
+                    setActionMsg('Action failed: ' + e.message);
+                } finally {
+                    setIsActionPending(false);
+                }
+            };
+
+            const runTacticalCommand = (cmdName) => {
+                setActionMsg(`✓ Tactical Command Executed: ${cmdName} initiated successfully.`);
+                setTimeout(() => setActionMsg(null), 4000);
+            };
+
+            const vessel = summary?.vessel || {};
+            const fuel = summary?.fuel || {};
+            const fieldTeams = summary?.field_teams || [];
+            const anomalyCount = summary?.recent_anomaly_count || 0;
+
+            const bLat = -69.4082;
+            const bLon = 76.1873;
+            const kmToPx = 1.7;
+
+            const calcRadarOffset = (lat, lon) => {
+                if (!lat || !lon) return { cx: 200, cy: 200 };
+                const dLatKm = (lat - bLat) * 111.0;
+                const dLonKm = (lon - bLon) * 39.5;
+                const cx = 200 + dLonKm * kmToPx;
+                const cy = 200 - dLatKm * kmToPx;
+                return { cx: Math.max(25, Math.min(375, cx)), cy: Math.max(25, Math.min(375, cy)) };
+            };
+
+            const vPos = calcRadarOffset(vessel.latitude, vessel.longitude);
+
+            return (
+                <div className="tab-content space-y-6">
+                    {/* Top KPI Cards (4 metrics) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {/* 1. Supply Vessel */}
+                        <Panel className="border-cyan/30">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-semibold text-cyan uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icons.ship size={14} /> Supply Vessel AIS
+                                </span>
+                                <span className="status-pill border-cyan/40 text-cyan bg-cyan/10">
+                                    {vessel.anomaly ? 'OFF COURSE' : 'APPROACHING'}
+                                </span>
+                            </div>
+                            <div className="text-lg font-bold text-white tracking-tight">{vessel.name || 'RRS Sir David Attenborough'}</div>
+                            <div className="text-xs text-gray-400 mt-1 font-mono">
+                                Dist to Bharati: <span className="text-cyan font-bold">{vessel.distance_to_station_km || 38.4} km</span> (ETA ~{vessel.eta_hours || 2.1}h)
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono mt-3 pt-2 border-t border-panelborder">
+                                <span>Speed: {vessel.speed_knots || 10.5} kn</span>
+                                <span>Heading: {vessel.heading || 65}°</span>
+                            </div>
+                        </Panel>
+
+                        {/* 2. Field Teams */}
+                        <Panel className="border-purple/30">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-semibold text-purple uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icons.users size={14} /> Field Expeditions
+                                </span>
+                                <span className="status-pill border-purple/40 text-purple bg-purple/10">IRIDIUM 5/5</span>
+                            </div>
+                            <div className="text-lg font-bold text-white tracking-tight">{fieldTeams.length} Active Teams Deployed</div>
+                            <div className="text-xs text-gray-400 mt-1 font-mono">
+                                Max Excursion: <span className="text-purple font-bold">
+                                    {Math.max(...fieldTeams.map(t => t.distance_from_station_km || 0), 14.2)} km
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono mt-3 pt-2 border-t border-panelborder">
+                                <span>Sat Uplink: Nominal</span>
+                                <span>SAR Alert: Standby</span>
+                            </div>
+                        </Panel>
+
+                        {/* 3. Fuel Reserve */}
+                        <Panel className="border-green/30">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-semibold text-green uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icons.fuel size={14} /> Station Fuel Farm
+                                </span>
+                                <span className="status-pill border-green/40 text-green bg-green/10">AUTONOMY STABLE</span>
+                            </div>
+                            <div className="text-lg font-bold text-white tracking-tight">
+                                {fuel.fuel_remaining_litres ? Math.round(fuel.fuel_remaining_litres).toLocaleString() : '284,500'} <span className="text-xs font-normal text-gray-400">/ 300k L</span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1 font-mono">
+                                Reserve Level: <span className="text-green font-bold">{fuel.fuel_remaining_percentage || 94.8}%</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono mt-3 pt-2 border-t border-panelborder">
+                                <span>Est: ~{fuel.estimated_autonomy_days || 295} Days</span>
+                                <span>Burn: ~{fuel.hourly_burn_rate_litres || 42} L/h</span>
+                            </div>
+                        </Panel>
+
+                        {/* 4. Anomaly Sentinel */}
+                        <Panel className={anomalyCount > 0 ? 'border-red/40 bg-red/5' : 'border-panelborder'}>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Icons.alert /> Incident Sentinel
+                                </span>
+                                <span className={`status-pill ${anomalyCount > 0 ? 'border-red/40 text-red bg-red/10' : 'border-green/40 text-green bg-green/10'}`}>
+                                    {anomalyCount > 0 ? 'ATTENTION REQUIRED' : 'NOMINAL'}
+                                </span>
+                            </div>
+                            <div className="text-lg font-bold text-white tracking-tight">
+                                {anomalyCount > 0 ? `${anomalyCount} Triggered Alerts` : '0 Critical Incidents'}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1 font-mono">
+                                AIS Deviation Check: <span className={vessel.anomaly ? 'text-red font-bold' : 'text-green'}>
+                                    {vessel.anomaly ? 'FLAGGED' : 'CLEAR'}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono mt-3 pt-2 border-t border-panelborder">
+                                <span>Iridium SOS: Clear</span>
+                                <span>Ice Drift: Low</span>
+                            </div>
+                        </Panel>
+                    </div>
+
+                    {/* Action notification banner if triggered */}
+                    {actionMsg && (
+                        <div className="p-3.5 rounded-xl bg-cyan/10 border border-cyan/40 text-cyan text-xs font-mono flex items-center justify-between shadow-lg">
+                            <span>ℹ {actionMsg}</span>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">LOGISTICS DISPATCH CONFIRMED</span>
+                        </div>
+                    )}
+
+                    {/* Main Interactive Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                        {/* LEFT: Tactical Polar Radar & Tactical Actions (7 cols) */}
+                        <div className="xl:col-span-7 space-y-6">
+                            <Panel title="Tactical Polar Logistics Radar" subtitle="BHARATI BASE CENTERED (100 KM RADIUS)">
+                                <div className="relative w-full aspect-square max-h-[420px] mx-auto bg-[#030812] rounded-xl border border-panelborder/80 overflow-hidden flex items-center justify-center p-2">
+                                    <svg viewBox="0 0 400 400" className="w-full h-full">
+                                        <circle cx="200" cy="200" r="170" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
+                                        <circle cx="200" cy="200" r="127.5" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
+                                        <circle cx="200" cy="200" r="85" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
+                                        <circle cx="200" cy="200" r="42.5" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
+
+                                        <line x1="200" y1="20" x2="200" y2="380" stroke="#1e293b" strokeWidth="1" />
+                                        <line x1="20" y1="200" x2="380" y2="200" stroke="#1e293b" strokeWidth="1" />
+
+                                        <text x="204" y="244" fill="#475569" fontSize="9" fontFamily="monospace">25km</text>
+                                        <text x="204" y="287" fill="#475569" fontSize="9" fontFamily="monospace">50km</text>
+                                        <text x="204" y="329" fill="#475569" fontSize="9" fontFamily="monospace">75km</text>
+                                        <text x="204" y="372" fill="#475569" fontSize="9" fontFamily="monospace">100km</text>
+
+                                        <text x="195" y="16" fill="#64748b" fontSize="10" fontWeight="bold">N</text>
+                                        <text x="384" y="204" fill="#64748b" fontSize="10" fontWeight="bold">E</text>
+                                        <text x="196" y="396" fill="#64748b" fontSize="10" fontWeight="bold">S</text>
+                                        <text x="6" y="204" fill="#64748b" fontSize="10" fontWeight="bold">W</text>
+
+                                        <line x1="200" y1="200" x2="370" y2="200" stroke="rgba(34, 211, 238, 0.35)" strokeWidth="1.5" className="radar-line" />
+
+                                        <circle cx="200" cy="200" r="8" fill="rgba(34, 211, 238, 0.2)" stroke="#22d3ee" strokeWidth="2" />
+                                        <circle cx="200" cy="200" r="3" fill="#22d3ee" />
+                                        <text x="210" y="196" fill="#22d3ee" fontSize="10" fontWeight="bold" fontFamily="monospace">BHARATI STATION</text>
+
+                                        {fieldTeams.map((team) => {
+                                            const pos = calcRadarOffset(team.latitude, team.longitude);
+                                            const isAlert = team.status === 'SOS_ALERT';
+                                            return (
+                                                <g key={team.id}>
+                                                    <line x1="200" y1="200" x2={pos.cx} y2={pos.cy} stroke="#a855f7" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+                                                    <circle cx={pos.cx} cy={pos.cy} r={isAlert ? "9" : "6"} fill={isAlert ? "rgba(239, 68, 68, 0.3)" : "rgba(168, 85, 247, 0.25)"} stroke={isAlert ? "#ef4444" : "#a855f7"} strokeWidth="1.5" />
+                                                    <circle cx={pos.cx} cy={pos.cy} r="3" fill={isAlert ? "#ef4444" : "#a855f7"} />
+                                                    <text x={pos.cx + 8} y={pos.cy + 3} fill={isAlert ? "#ef4444" : "#c084fc"} fontSize="9" fontFamily="monospace" fontWeight="bold">
+                                                        {team.id} ({team.distance_from_station_km}km)
+                                                    </text>
+                                                </g>
+                                            );
+                                        })}
+
+                                        <g>
+                                            <line x1={vPos.cx} y1={vPos.cy} x2="200" y2="200" stroke="#00eaff" strokeWidth="1.2" strokeDasharray="4 4" opacity="0.5" />
+                                            <circle cx={vPos.cx} cy={vPos.cy} r="8" fill={vessel.anomaly ? "rgba(239, 68, 68, 0.35)" : "rgba(0, 234, 255, 0.25)"} stroke={vessel.anomaly ? "#ef4444" : "#00eaff"} strokeWidth="2" />
+                                            <circle cx={vPos.cx} cy={vPos.cy} r="3" fill={vessel.anomaly ? "#ef4444" : "#00eaff"} />
+                                            <text x={vPos.cx + 12} y={vPos.cy - 2} fill={vessel.anomaly ? "#ef4444" : "#00eaff"} fontSize="10" fontFamily="monospace" fontWeight="bold">
+                                                🚢 {vessel.name || 'VESSEL'}
+                                            </text>
+                                            <text x={vPos.cx + 12} y={vPos.cy + 10} fill="#94a3b8" fontSize="8" fontFamily="monospace">
+                                                {vessel.speed_knots}kn | {vessel.heading}° | {vessel.distance_to_station_km}km out
+                                            </text>
+                                        </g>
+                                    </svg>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-panelborder">
+                                    <button
+                                        disabled={isActionPending}
+                                        onClick={() => triggerAction('resupply')}
+                                        className="btn text-xs justify-center py-2 text-cyan border-cyan/30 hover:bg-cyan/10">
+                                        ⚓ Fuel Resupply
+                                    </button>
+                                    <button
+                                        disabled={isActionPending}
+                                        onClick={() => triggerAction('trigger_anomaly')}
+                                        className="btn text-xs justify-center py-2 text-yellow border-yellow/30 hover:bg-yellow/10">
+                                        ⚠ Inject Anomaly
+                                    </button>
+                                    <button
+                                        disabled={isActionPending}
+                                        onClick={() => triggerAction('ping_teams')}
+                                        className="btn text-xs justify-center py-2 text-purple border-purple/30 hover:bg-purple/10">
+                                        📡 Ping All Teams
+                                    </button>
+                                    <button
+                                        disabled={isActionPending}
+                                        onClick={() => triggerAction('reset')}
+                                        className="btn text-xs justify-center py-2 text-gray-400 border-panelborder hover:bg-white/5">
+                                        ⟲ Reset State
+                                    </button>
+                                </div>
+                            </Panel>
+
+                            {/* TACTICAL STATION ACTIONS (Moved from Homepage as requested) */}
+                            <Panel title="Tactical Station Operational Actions" subtitle="MISSION LOGISTICS COMMAND">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <button
+                                        onClick={() => runTacticalCommand('Sensor Diagnostic Sweep')}
+                                        className="btn justify-center text-xs py-2.5 text-cyan border-cyan/30 hover:bg-cyan/10">
+                                        ⚡ Run Sensor Diagnostics
+                                    </button>
+                                    <button
+                                        onClick={() => runTacticalCommand('Iridium Satellite Backup Uplink')}
+                                        className="btn justify-center text-xs py-2.5 text-purple border-purple/30 hover:bg-purple/10">
+                                        📡 Switch to Iridium Link
+                                    </button>
+                                    <button
+                                        onClick={() => runTacticalCommand('Station Closed-Loop Thermal Calibration')}
+                                        className="btn justify-center text-xs py-2.5 text-yellow border-yellow/30 hover:bg-yellow/10">
+                                        🌡 Calibrate Thermal Loop
+                                    </button>
+                                </div>
+                            </Panel>
+                        </div>
+
+                        {/* RIGHT: Fuel Farm Breakdown & Live Event Stream (5 cols) */}
+                        <div className="xl:col-span-5 space-y-6">
+                            <Panel title="Fuel Farm Storage & CHP Consumption" subtitle="STATION RESERVES">
+                                <div className="space-y-4">
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1.5">
+                                            <span className="text-gray-300 font-semibold">Bulk Fuel Reserve (Polar Diesel A-1)</span>
+                                            <span className="font-mono text-cyan font-bold">
+                                                {fuel.fuel_remaining_litres ? Math.round(fuel.fuel_remaining_litres).toLocaleString() : '284,500'} / 300,000 L
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-darkbg rounded-full h-3 border border-panelborder overflow-hidden">
+                                            <div
+                                                className="bg-gradient-to-r from-green via-cyan to-blue-500 h-full transition-all duration-500 rounded-full"
+                                                style={{ width: `${fuel.fuel_remaining_percentage || 94.8}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-gray-500 font-mono mt-1">
+                                            <span>Reserve: {fuel.fuel_remaining_percentage || 94.8}%</span>
+                                            <span>Est. Autonomy: ~{fuel.estimated_autonomy_days || 295} Days Remaining</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 pt-2 border-t border-panelborder">
+                                        <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">CHP Units Cumulative Consumption</div>
+                                        {fuel.CHP_generators && Object.entries(fuel.CHP_generators).map(([chp, val]) => (
+                                            <div key={chp} className="flex items-center justify-between p-2 rounded bg-darkbg/50 border border-panelborder text-xs">
+                                                <span className="font-mono font-medium text-white">{chp}</span>
+                                                <span className="text-[11px] text-gray-400">Load: <span className="text-cyan font-bold">{val.load_percentage}%</span></span>
+                                                <span className="font-mono text-yellow font-bold">{Math.round(val.cumulative_consumption_litres)} L burned</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </Panel>
+
+                            {/* Live Logistics Event Log Stream */}
+                            <Panel title="Live Logistics Event Stream" subtitle="JSONL TELEMETRY STREAM">
+                                <div className="flex flex-wrap gap-1 mb-3 pb-2 border-b border-panelborder">
+                                    {['ALL', 'VESSEL_AIS', 'IRIDIUM_FIELD_PING', 'FUEL_CONSUMPTION', 'ANOMALY'].map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setEventFilter(f)}
+                                            className={`text-[9px] px-2 py-1 rounded font-mono font-semibold transition-all ${eventFilter === f ? 'bg-cyan/20 text-cyan border border-cyan/40' : 'text-gray-500 hover:text-gray-300'}`}>
+                                            {f.replace('_', ' ')}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1" style={{ scrollbarGutter: 'stable' }}>
+                                    {events.length === 0 ? (
+                                        <div className="text-center py-8 text-xs text-gray-500 font-mono">Connecting to simulation stream...</div>
+                                    ) : (
+                                        events.map((ev, i) => {
+                                            const isAnomaly = !!ev.anomaly;
+                                            const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '--:--:--';
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`p-2.5 rounded-lg border text-xs font-mono transition-all ${
+                                                        isAnomaly
+                                                            ? 'bg-red/10 border-red/40 text-red'
+                                                            : ev.event_type === 'VESSEL_AIS'
+                                                            ? 'bg-darkbg/60 border-cyan/20 text-gray-300'
+                                                            : ev.event_type === 'IRIDIUM_FIELD_PING'
+                                                            ? 'bg-darkbg/60 border-purple/20 text-gray-300'
+                                                            : 'bg-darkbg/60 border-panelborder text-gray-400'
+                                                    }`}>
+                                                    <div className="flex items-center justify-between text-[10px] mb-1">
+                                                        <span className="font-bold flex items-center gap-1.5">
+                                                            {isAnomaly && <span className="w-2 h-2 rounded-full bg-red pulse-dot" />}
+                                                            <span className={
+                                                                ev.event_type === 'VESSEL_AIS' ? 'text-cyan' :
+                                                                ev.event_type === 'IRIDIUM_FIELD_PING' ? 'text-purple' :
+                                                                ev.event_type === 'FUEL_CONSUMPTION' ? 'text-yellow' : 'text-green'
+                                                            }>{ev.event_type}</span>
+                                                        </span>
+                                                        <span className="text-gray-500">{timeStr}</span>
+                                                    </div>
+
+                                                    {ev.event_type === 'VESSEL_AIS' && ev.vessel && (
+                                                        <div className="text-[11px] text-gray-300">
+                                                            Vessel at <span className="text-white">{ev.vessel.latitude}, {ev.vessel.longitude}</span> | {ev.vessel.speed_knots}kn → {ev.vessel.heading}° | {ev.vessel.distance_to_station_km}km out
+                                                        </div>
+                                                    )}
+                                                    {ev.event_type === 'IRIDIUM_FIELD_PING' && ev.field_team && (
+                                                        <div className="text-[11px] text-gray-300">
+                                                            {ev.field_team.id}: Distance {ev.field_team.distance_from_station_km}km | Heading {ev.field_team.heading}° | Batt {ev.field_team.battery_pct}%
+                                                        </div>
+                                                    )}
+                                                    {ev.event_type === 'FUEL_CONSUMPTION' && ev.inventory && (
+                                                        <div className="text-[11px] text-gray-300">
+                                                            Burn: -{ev.inventory.fuel_consumed_this_interval_litres} L | Remaining: {Math.round(ev.inventory.fuel_remaining_litres).toLocaleString()} L ({ev.inventory.fuel_remaining_percentage}%)
+                                                        </div>
+                                                    )}
+                                                    {ev.event_type === 'STATION_STATUS' && (
+                                                        <div className="text-[11px] text-gray-300">
+                                                            {ev.message || `Station online. Fuel ${ev.fuel_level_percentage}%. Teams: ${ev.field_teams_tracked}.`}
+                                                        </div>
+                                                    )}
+
+                                                    {isAnomaly && (
+                                                        <div className="mt-2 p-2 rounded bg-red/20 border border-red/40 text-[10px] space-y-1">
+                                                            <div className="font-bold uppercase tracking-wider text-red flex items-center gap-1">
+                                                                ⚠ {ev.anomaly.type}: {ev.anomaly.message}
+                                                            </div>
+                                                            <div className="text-gray-200">
+                                                                Action: <span className="text-yellow font-semibold">{ev.anomaly.recommended_action}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </Panel>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // =====================================================================
+        // TAB 4: SECURITY TAB (Cybersecurity Gateway)
+        // =====================================================================
+        const SecurityTab = () => {
+            const [health, setHealth] = useState(null);
+            const [vsatStatus, setVsatStatus] = useState(null);
+            const [reliability, setReliability] = useState(null);
+            const [pqcKeys, setPqcKeys] = useState(null);
+            const [loadingKeys, setLoadingKeys] = useState(false);
+
+            useEffect(() => {
+                const fetchSecurity = async () => {
+                    try {
+                        const [h, v, r] = await Promise.all([
+                            fetch('/api/gateway/health'),
+                            fetch('/api/gateway/link/vsat-status'),
+                            fetch('/api/gateway/link/reliability-report')
+                        ]);
+                        if (h.ok) setHealth(await h.json());
+                        if (v.ok) setVsatStatus(await v.json());
+                        if (r.ok) setReliability(await r.json());
+                    } catch (e) {
+                        console.error('Security fetch error:', e);
+                    }
+                };
+                fetchSecurity();
+                const interval = setInterval(fetchSecurity, 6000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const generatePQC = async () => {
+                setLoadingKeys(true);
+                try {
+                    const res = await fetch('/api/gateway/crypto/pqc/generate-keypair');
+                    if (res.ok) setPqcKeys(await res.json());
+                } catch (e) {
+                    console.error('PQC generation error:', e);
+                } finally {
+                    setLoadingKeys(false);
+                }
+            };
+
+            return (
+                <div className="tab-content grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="space-y-6">
+                        <Panel title="Zero-Trust Gateway Architecture" subtitle="AUTHENTICATION ENCLAVE">
+                            <div className="p-3 rounded-lg bg-darkbg/50 border border-panelborder space-y-2 mb-4">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-400">Gateway Status:</span>
+                                    <span className="status-pill border-green/40 text-green bg-green/10">ONLINE</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-400">Enclave Mode:</span>
+                                    <span className="font-mono text-cyan text-[11px]">Zero-Trust Perimeter</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-400">MFA Secondary Gate:</span>
+                                    <span className="font-mono text-green text-[11px]">8-Digit Sat Sync</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Active Components</div>
+                                {(health?.components || ['zero_trust_auth', 'post_quantum_crypto', 'link_integrity_monitor', 'secure_command_uplink']).map(c => (
+                                    <div key={c} className="flex items-center justify-between p-2 rounded bg-darkbg/60 border border-panelborder text-xs">
+                                        <span className="font-mono text-gray-300">{c}</span>
+                                        <span className="text-green text-[11px]">✓ Enforced</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Panel>
+
+                        <Panel title="Station Perimeter Zero-Trust" subtitle="ACTIVE POLICIES">
+                            <ul className="text-xs space-y-2 text-gray-400">
+                                <li className="flex items-start gap-2">
+                                    <span className="text-cyan">✓</span>
+                                    <span>Continuous validation on all station telemetry endpoints.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-cyan">✓</span>
+                                    <span>Administrative operational actions require Satellite Sync Code verification.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="text-cyan">✓</span>
+                                    <span>Public researcher outreach access scoped to read-only views.</span>
+                                </li>
+                            </ul>
+                        </Panel>
+                    </div>
+
+                    <div className="space-y-6">
+                        <Panel title="Post-Quantum Cryptography (PQC)" subtitle="ML-KEM-768 (KYBER)">
+                            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                                Future-proof lattice-based key encapsulation compliant with NIST FIPS 203. Protects polar uplink communications against quantum decryption.
+                            </p>
+
+                            <button
+                                onClick={generatePQC}
+                                disabled={loadingKeys}
+                                className="btn w-full justify-center text-xs py-2.5 text-cyan border-cyan/40 bg-cyan/10 hover:bg-cyan/20 font-bold mb-4">
+                                {loadingKeys ? '⟳ Computing Lattice Keypair...' : '🔑 Generate PQC ML-KEM-768 Keypair'}
+                            </button>
+
+                            {pqcKeys && (
+                                <div className="p-3 rounded-lg bg-darkbg/80 border border-cyan/30 text-xs font-mono space-y-2">
+                                    <div className="text-cyan font-bold text-[11px]">{pqcKeys.algorithm}</div>
+                                    <div className="text-gray-400 text-[10px]">Key Size: <span className="text-white">{pqcKeys.key_size_bytes} Bytes</span></div>
+                                    <div className="text-gray-400 text-[10px]">Security: <span className="text-green font-bold">NIST Category 3 (AES-192 equivalent)</span></div>
+                                    <div className="text-[10px] text-gray-400 break-all bg-darkbg p-2 rounded border border-panelborder">
+                                        <div className="text-gray-500 mb-1">Public Key Hex:</div>
+                                        <span className="text-yellow">{pqcKeys.public_key_hex}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </Panel>
+                    </div>
+
+                    <div className="space-y-6">
+                        <Panel title="VSAT Satellite Link Integrity" subtitle="KU/KA BAND TELEMETRY">
+                            <div className="space-y-3 text-xs">
+                                <div className="p-3 rounded-lg bg-darkbg/50 border border-panelborder">
+                                    <div className="flex justify-between text-gray-400 mb-1">
+                                        <span>Signal-to-Noise Ratio (SNR):</span>
+                                        <span className="font-mono text-cyan font-bold">{vsatStatus?.snr_db || 15.4} dB</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400 mb-1">
+                                        <span>Carrier Frequency:</span>
+                                        <span className="font-mono text-white">{vsatStatus?.frequency_mhz || 3999.8} MHz</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400 mb-1">
+                                        <span>Bit Error Rate (BER):</span>
+                                        <span className="font-mono text-green">1.8e-06</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Jamming / Spoofing:</span>
+                                        <span className="font-bold text-green">NONE DETECTED</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-3 rounded-lg bg-darkbg/50 border border-panelborder">
+                                    <div className="flex justify-between text-gray-400 mb-1">
+                                        <span>VSAT Link Uptime:</span>
+                                        <span className="font-mono text-green font-bold">{reliability?.uptime_pct || 99.2}%</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400 mb-1">
+                                        <span>Average Sat Latency:</span>
+                                        <span className="font-mono text-white">{reliability?.avg_latency_ms || 280} ms</span>
+                                    </div>
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Packet Loss:</span>
+                                        <span className="font-mono text-cyan">{reliability?.avg_packet_loss_pct || 0.6}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Panel>
+                    </div>
+                </div>
+            );
+        };
+
+        // =====================================================================
+        // TAB 5: MAINTENANCE TAB (With Dynamic Generator & Battery Stress Modeling)
+        // =====================================================================
+        const MaintenanceTab = ({ onSyncGrid }) => {
+            const [testRpm, setTestRpm] = useState(1500);
+            const [testTemp, setTestTemp] = useState(85);
+            const [prediction, setPrediction] = useState(null);
+            const [loadingPred, setLoadingPred] = useState(false);
+            const [telemetry, setTelemetry] = useState(null);
+            const [syncActive, setSyncActive] = useState(false);
+
+            useEffect(() => {
+                const fetchTelem = async () => {
+                    try {
+                        const res = await fetch('/api/telemetry');
+                        if (res.ok) setTelemetry(await res.json());
+                    } catch (e) {
+                        console.error('Telem error:', e);
+                    }
+                };
+                fetchTelem();
+                const interval = setInterval(fetchTelem, 5000);
+                return () => clearInterval(interval);
+            }, []);
+
+            // DYNAMIC PHYSICAL MODELING: Generator Stress & Battery Factors
+            const rpmDiff = Math.abs(testRpm - 1500);
+            const tempDiff = Math.max(0, testTemp - 85);
+
+            // 1. Generator Mechanical Stress (0 - 100%)
+            const genStress = Math.min(100, Math.round(14 + (rpmDiff / 100) * 62 + (tempDiff / 35) * 34));
+            const vibrationMmS = (1.1 + (rpmDiff / 100) * 5.8 + (tempDiff / 35) * 2.2).toFixed(2);
+            const bearingWearRate = (1.0 + (rpmDiff / 100) * 3.5 + (tempDiff / 35) * 4.2).toFixed(1);
+
+            // 2. Alternator AC Frequency (Hz) - 1500 RPM = 50.0 Hz
+            const busFreq = (testRpm / 30).toFixed(1);
+
+            // 3. Battery Buffer & Grid Stress (0 - 100%)
+            let battStress, battMode, battDrainKw, battModeColor;
+            if (testRpm < 1475) {
+                // Under-RPM = under-voltage deficit, batteries discharging to support grid
+                battStress = Math.min(100, Math.round(15 + (1475 - testRpm) * 1.6 + (tempDiff * 0.5)));
+                battMode = 'DEFICIT BUFFER (BATTERIES DISCHARGING)';
+                battDrainKw = `-${((1500 - testRpm) * 0.45).toFixed(1)} kW (DRAIN)`;
+                battModeColor = 'text-yellow';
+            } else if (testRpm > 1525) {
+                // Over-RPM = over-voltage, excess surge charging batteries
+                battStress = Math.min(100, Math.round(12 + (testRpm - 1525) * 1.4 + (tempDiff * 0.8)));
+                battMode = 'SURGE TRICKLE (OVERVOLTAGE RISK)';
+                battDrainKw = `+${((testRpm - 1500) * 0.38).toFixed(1)} kW (SURGE)`;
+                battModeColor = 'text-red';
+            } else {
+                // Nominal 1475 - 1525 RPM
+                battStress = Math.max(8, Math.round(10 + Math.abs(testRpm - 1500) * 0.3));
+                battMode = 'BALANCED FLOAT (98.4% EFFICIENCY)';
+                battDrainKw = '0.0 kW (STABLE)';
+                battModeColor = 'text-green';
+            }
+
+            // Sync with live grid if enabled
+            useEffect(() => {
+                if (syncActive && onSyncGrid) {
+                    const baseOutput = Math.round((testRpm / 1500) * 160);
+                    const syncedGens = [
+                        { name: 'Gen 1', output: baseOutput },
+                        { name: 'Gen 2', output: Math.round(baseOutput * 0.96) },
+                        { name: 'Gen 3', output: Math.round(baseOutput * 0.32) },
+                        { name: 'Gen 4', output: Math.round(baseOutput * 0.30) },
+                    ];
+                    const battAdjust = testRpm < 1475 ? 8 : testRpm > 1525 ? -5 : 0;
+                    onSyncGrid(syncedGens, battAdjust);
+                }
+            }, [testRpm, testTemp, syncActive, onSyncGrid]);
+
+            const runPrediction = async () => {
+                setLoadingPred(true);
+                try {
+                    const res = await fetch('/api/telemetry/predict', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rpm: Number(testRpm), temp: Number(testTemp) })
+                    });
+                    if (res.ok) setPrediction(await res.json());
+                } catch (e) {
+                    console.error('Prediction error:', e);
+                } finally {
+                    setLoadingPred(false);
+                }
+            };
+
+            return (
+                <div className="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Live Units Overview (6 cols) */}
+                    <div className="lg:col-span-6 space-y-6">
+                        <Panel title="Live Station CHP Generator Units" subtitle="ARRAY SENSORS">
+                            <div className="space-y-4">
+                                {['bharati', 'maitri'].map(st => {
+                                    const stData = telemetry?.[st];
+                                    if (!stData) return null;
+                                    return (
+                                        <div key={st} className="p-4 rounded-xl bg-darkbg/50 border border-panelborder space-y-3">
+                                            <div className="flex items-center justify-between text-xs pb-2 border-b border-panelborder font-semibold uppercase tracking-wider text-white">
+                                                <span>{st === 'bharati' ? 'BHARATI STATION CHP ARRAY' : 'MAITRI STATION CHP ARRAY'}</span>
+                                                <span className="text-[10px] text-cyan font-mono">Fuel Farm Synced</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                {stData.chp_units.map(unit => {
+                                                    const isCrit = unit.status === 'CRITICAL';
+                                                    return (
+                                                        <div key={unit.id} className={`p-3 rounded-lg border text-xs space-y-1 font-mono ${isCrit ? 'bg-red/10 border-red/40' : 'bg-darkbg/70 border-panelborder'}`}>
+                                                            <div className="flex items-center justify-between font-bold text-white">
+                                                                <span>CHP-0{unit.id}</span>
+                                                                <span className={`status-pill ${isCrit ? 'text-red border-red/40 bg-red/10' : 'text-green border-green/40 bg-green/10'}`}>
+                                                                    {unit.status}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-gray-400 text-[11px]">RPM: <span className={isCrit ? 'text-red font-bold' : 'text-white'}>{unit.rpm}</span></div>
+                                                            <div className="text-gray-400 text-[11px]">Temp: <span className={isCrit ? 'text-red font-bold' : 'text-cyan'}>{unit.temp}°C</span></div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Panel>
+                    </div>
+
+                    {/* Interactive AI & Physical Stress Modeling Console (6 cols) */}
+                    <div className="lg:col-span-6 space-y-6">
+                        <Panel title="Edge AI Predictive Diagnostics & Stress Console" subtitle="ISOLATION FOREST & PHYSICAL MODEL">
+                            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                                Adjusting generator RPM and bearing temperature dynamically computes mechanical stress, rotor vibration harmonics, and battery grid buffer factors in real time.
+                            </p>
+
+                            {/* Sliders */}
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="text-gray-300 font-semibold">Simulated Generator RPM</span>
+                                        <span className="font-mono text-cyan font-bold text-sm">{testRpm} RPM</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="1400"
+                                        max="1600"
+                                        step="1"
+                                        value={testRpm}
+                                        onChange={(e) => setTestRpm(Number(e.target.value))}
+                                        className="w-full accent-cyan cursor-pointer"
+                                    />
+                                    <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                                        <span>1400 (Under-RPM Deficit)</span>
+                                        <span className="text-cyan font-semibold">1500 (Nominal)</span>
+                                        <span>1600 (Over-RPM Surge)</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="text-gray-300 font-semibold">Coolant / Bearing Temperature (°C)</span>
+                                        <span className="font-mono text-yellow font-bold text-sm">{testTemp}°C</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="65"
+                                        max="120"
+                                        step="0.5"
+                                        value={testTemp}
+                                        onChange={(e) => setTestTemp(Number(e.target.value))}
+                                        className="w-full accent-yellow cursor-pointer"
+                                    />
+                                    <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                                        <span>65°C (Cool)</span>
+                                        <span className="text-yellow font-semibold">85°C (Nominal)</span>
+                                        <span>120°C (Critical)</span>
+                                    </div>
+                                </div>
+
+                                {/* DYNAMIC FACTORS: Generator Stress Meter */}
+                                <div className="p-3.5 rounded-xl bg-darkbg/80 border border-panelborder space-y-2 mt-2">
+                                    <div className="flex items-center justify-between text-xs font-semibold">
+                                        <span className="text-gray-300 flex items-center gap-1.5">
+                                            ⚙ GENERATOR MECHANICAL STRESS:
+                                        </span>
+                                        <span className={`font-mono font-bold ${genStress > 65 ? 'text-red' : genStress > 35 ? 'text-yellow' : 'text-green'}`}>
+                                            {genStress}% STRESS {genStress > 65 ? '(CRITICAL STRAIN)' : genStress > 35 ? '(ELEVATED)' : '(NOMINAL)'}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-darkbg rounded-full h-2.5 overflow-hidden border border-panelborder">
+                                        <div
+                                            className={`h-full transition-all duration-200 rounded-full ${
+                                                genStress > 65 ? 'bg-gradient-to-r from-yellow-500 to-red-500' :
+                                                genStress > 35 ? 'bg-gradient-to-r from-green-500 to-yellow-500' : 'bg-green-500'
+                                            }`}
+                                            style={{ width: `${genStress}%` }}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-gray-400 pt-1">
+                                        <div>Vibration Index: <span className="text-white font-bold">{vibrationMmS}</span></div>
+                                        <div>Bearing Wear Rate: <span className={genStress > 65 ? 'text-red font-bold' : 'text-cyan'}>{bearingWearRate}x</span></div>
+                                    </div>
+                                </div>
+
+                                {/* DYNAMIC FACTORS: Battery Buffer & Grid Factor */}
+                                <div className="p-3.5 rounded-xl bg-darkbg/80 border border-panelborder space-y-2">
+                                    <div className="flex items-center justify-between text-xs font-semibold">
+                                        <span className="text-gray-300 flex items-center gap-1.5">
+                                            🔋 BATTERY &amp; POWER BUS STRAIN:
+                                        </span>
+                                        <span className={`font-mono font-bold ${battStress > 50 ? 'text-red' : battStress > 25 ? 'text-yellow' : 'text-cyan'}`}>
+                                            {battStress}% STRAIN
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-darkbg rounded-full h-2.5 overflow-hidden border border-panelborder">
+                                        <div
+                                            className={`h-full transition-all duration-200 rounded-full ${
+                                                battStress > 50 ? 'bg-gradient-to-r from-yellow-500 to-red-500' :
+                                                battStress > 25 ? 'bg-gradient-to-r from-cyan-500 to-yellow-500' : 'bg-cyan-500'
+                                            }`}
+                                            style={{ width: `${battStress}%` }}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-gray-400 pt-1">
+                                        <div>Bus Alternator Freq: <span className="text-white font-bold">{busFreq} Hz</span></div>
+                                        <div>Net Flow: <span className="text-cyan font-bold">{battDrainKw}</span></div>
+                                        <div className="col-span-2 text-[10px]">
+                                            Battery Mode: <span className={`font-bold ${battModeColor}`}>{battMode}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Sync with Live Station Grid Option */}
+                                <div className="flex items-center justify-between p-2.5 rounded-lg bg-cyan/5 border border-cyan/20 text-xs">
+                                    <span className="text-gray-300 flex items-center gap-1.5">
+                                        ⚡ Sync Stress Simulation with Overview Grid
+                                    </span>
+                                    <button
+                                        onClick={() => setSyncActive(!syncActive)}
+                                        className={`btn text-xs py-1 px-3 ${syncActive ? 'btn-active font-bold' : 'text-gray-400'}`}>
+                                        {syncActive ? '✓ Grid Sync ON' : 'Grid Sync OFF'}
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={runPrediction}
+                                    disabled={loadingPred}
+                                    className="btn w-full justify-center text-xs py-2.5 text-cyan border-cyan/40 bg-cyan/10 hover:bg-cyan/20 font-bold">
+                                    {loadingPred ? '⟳ Running Edge AI Inference...' : '⚡ Run Edge AI IsolationForest Inference'}
+                                </button>
+
+                                {prediction && (
+                                    <div className={`p-4 rounded-xl border text-xs font-mono space-y-2 mt-3 ${
+                                        prediction.status === 'CRITICAL' ? 'bg-red/10 border-red/40 text-red' : 'bg-green/10 border-green/40 text-green'
+                                    }`}>
+                                        <div className="flex items-center justify-between font-bold text-sm">
+                                            <span>DIAGNOSIS: {prediction.status}</span>
+                                            <span className="status-pill">{prediction.status}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-200 font-sans leading-relaxed">
+                                            {prediction.explanation}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 pt-2 border-t border-panelborder">
+                                            RPM Drift Alert: {prediction.rpm_anomaly ? 'YES ⚠' : 'NO ✓'} | Thermal Envelope Drift: {prediction.temp_anomaly ? 'YES ⚠' : 'NO ✓'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </Panel>
+                    </div>
+                </div>
+            );
+        };
+
+        // =====================================================================
+        // AUTH / LOGIN PAGE (Faithfully integrates web.html design)
+        // =====================================================================
+        const LoginPage = ({ onLoginSuccess }) => {
+            const [accessType, setAccessType] = useState('commander'); // 'normal' | 'commander'
+            const [viewMode, setViewMode] = useState('login'); // 'login' | 'create' | 'mfa'
+
+            // Normal user state
+            const [normalUser, setNormalUser] = useState('');
+            const [normalPass, setNormalPass] = useState('');
+            const [showNormalPass, setShowNormalPass] = useState(false);
+            const [normalError, setNormalError] = useState('');
+
+            // Create account state
+            const [createName, setCreateName] = useState('');
+            const [createUser, setCreateUser] = useState('');
+            const [createPass, setCreatePass] = useState('');
+            const [createError, setCreateError] = useState('');
+            const [createSuccess, setCreateSuccess] = useState('');
+
+            // Commander state
+            const [commanderId, setCommanderId] = useState('NCPOR-ADMIN-001');
+            const [commanderPass, setCommanderPass] = useState('PolarAdmin@123');
+            const [showCmdPass, setShowCmdPass] = useState(false);
+            const [commanderError, setCommanderError] = useState('');
+
+            // MFA state
+            const [satelliteCode, setSatelliteCode] = useState('48291736');
+            const [mfaError, setMfaError] = useState('');
+
+            const handleNormalLogin = (e) => {
+                e.preventDefault();
+                setNormalError('');
+                if (!normalUser.trim() || !normalPass) {
+                    setNormalError('Please enter your username and password.');
+                    return;
+                }
+                const storedUsers = JSON.parse(localStorage.getItem('polarTwinPublicUsers') || '[]');
+                const match = storedUsers.find(u => u.username.toLowerCase() === normalUser.trim().toLowerCase() && u.password === normalPass) ||
+                              (normalUser.trim() === 'researcher' && normalPass === 'Polar@123' ? { name: 'Dr. A. Sharma', username: 'researcher' } : null);
+
+                if (match) {
+                    const userObj = {
+                        username: match.username,
+                        name: match.name || match.username,
+                        role: 'Public Researcher',
+                        access: 'public_outreach'
+                    };
+                    sessionStorage.setItem('polarTwinSession', JSON.stringify({ authenticated: true, user: userObj }));
+                    onLoginSuccess(userObj);
+                } else {
+                    setNormalError('Account not found or password incorrect. Try "researcher" / "Polar@123" or create an account.');
+                }
+            };
+
+            const handleCreateAccount = (e) => {
+                e.preventDefault();
+                setCreateError('');
+                setCreateSuccess('');
+                if (!createName.trim() || !createUser.trim() || !createPass) {
+                    setCreateError('Please complete all fields.');
+                    return;
+                }
+                if (createPass.length < 6) {
+                    setCreateError('Password must contain at least 6 characters.');
+                    return;
+                }
+                const storedUsers = JSON.parse(localStorage.getItem('polarTwinPublicUsers') || '[]');
+                if (storedUsers.some(u => u.username.toLowerCase() === createUser.trim().toLowerCase())) {
+                    setCreateError('That username already exists.');
+                    return;
+                }
+                storedUsers.push({ name: createName.trim(), username: createUser.trim(), password: createPass });
+                localStorage.setItem('polarTwinPublicUsers', JSON.stringify(storedUsers));
+                setCreateSuccess('Account created successfully! You can now log in.');
+                setTimeout(() => {
+                    setViewMode('login');
+                    setNormalUser(createUser.trim());
+                    setNormalPass(createPass);
+                    setCreateSuccess('');
+                }, 1200);
+            };
+
+            const handleCommanderAuth = (e) => {
+                e.preventDefault();
+                setCommanderError('');
+                if (commanderId.trim() !== ADMIN_CREDENTIALS.id) {
+                    setCommanderError('Unauthorized Personnel ID.');
+                    return;
+                }
+                if (commanderPass !== ADMIN_CREDENTIALS.password) {
+                    setCommanderError('Invalid credentials. Access denied.');
+                    return;
+                }
+                setViewMode('mfa');
+            };
+
+            const handleVerifyMFA = (e) => {
+                e.preventDefault();
+                setMfaError('');
+                if (!/^\d{8}$/.test(satelliteCode.trim())) {
+                    setMfaError('Satellite Sync Code must contain exactly 8 digits.');
+                    return;
+                }
+                if (satelliteCode.trim() !== ADMIN_CREDENTIALS.satelliteSyncCode) {
+                    setMfaError('Invalid Satellite Sync Code.');
+                    return;
+                }
+                const adminUser = {
+                    id: ADMIN_CREDENTIALS.id,
+                    name: 'Expedition Commander',
+                    role: ADMIN_CREDENTIALS.role,
+                    access: ADMIN_CREDENTIALS.clearance
+                };
+                sessionStorage.setItem('polarTwinSession', JSON.stringify({ authenticated: true, user: adminUser }));
+                onLoginSuccess(adminUser);
+            };
+
+            return (
+                <div className="login-page-bg">
+                    <div className="login-wrapper">
+                        {/* LEFT MISSION PANEL */}
+                        <div className="mission-panel">
+                            <div>
+                                <div className="flex items-center gap-3 mb-10">
+                                    <div className="logo-box">PT</div>
+                                    <div>
+                                        <h1 className="text-xl font-bold tracking-widest text-white">POLAR<span className="text-cyan">TWIN</span>-OS</h1>
+                                        <p className="text-[10px] tracking-[3px] text-gray-400 font-mono">NCPOR MISSION CONTROL</p>
+                                    </div>
+                                </div>
+
+                                <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight mb-4 tracking-tight">
+                                    Antarctic<br />
+                                    <span className="text-cyan">Mission Control.</span>
+                                </h2>
+
+                                <p className="text-sm text-gray-300 leading-relaxed max-w-md">
+                                    Secure remote monitoring, real-time logistics tracking, and digital-twin infrastructure for India's Antarctic research operations. Connect with Bharati and Maitri through a unified operational command layer.
+                                </p>
+                            </div>
+
+                            <div className="mt-8 space-y-6">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="status-card-login">
+                                        <small>BHARATI STATION</small>
+                                        <strong className="text-white flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-green pulse-dot" /> ONLINE
+                                        </strong>
+                                    </div>
+                                    <div className="status-card-login">
+                                        <small>MISSION LINK</small>
+                                        <strong className="text-cyan">STABLE</strong>
+                                    </div>
+                                    <div className="status-card-login">
+                                        <small>EDGE AI</small>
+                                        <strong className="text-green">ACTIVE</strong>
+                                    </div>
+                                </div>
+
+                                <div className="text-[10px] text-gray-400 font-mono tracking-wider pt-2 border-t border-cyan/15">
+                                    69°24′28″S 76°11′14″E &nbsp;|&nbsp; BHARATI RESEARCH STATION
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT LOGIN PANEL */}
+                        <div className="login-panel">
+                            <div className="login-box">
+                                {viewMode === 'login' && (
+                                    <div>
+                                        <div className="mb-6">
+                                            <div className="text-[10px] text-cyan font-bold tracking-[3px] uppercase mb-1">Secure Access Gateway</div>
+                                            <h2 className="text-2xl font-bold text-white tracking-tight">Mission Login</h2>
+                                            <p className="text-xs text-gray-400 mt-1">Select your access clearance type to continue.</p>
+                                        </div>
+
+                                        <div className="access-choice">
+                                            <div
+                                                onClick={() => setAccessType('normal')}
+                                                className={`access-option ${accessType === 'normal' ? 'active' : ''}`}>
+                                                <div className="text-cyan text-base">◉</div>
+                                                <strong>NORMAL USER</strong>
+                                                <small>Public Outreach</small>
+                                            </div>
+                                            <div
+                                                onClick={() => setAccessType('commander')}
+                                                className={`access-option ${accessType === 'commander' ? 'active' : ''}`}>
+                                                <div className="text-cyan text-base">⬡</div>
+                                                <strong>AUTHORIZED</strong>
+                                                <small>Commander Access</small>
+                                            </div>
+                                        </div>
+
+                                        {accessType === 'normal' && (
+                                            <form onSubmit={handleNormalLogin}>
+                                                <div className="login-field">
+                                                    <label>USERNAME</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Enter username (e.g. researcher)"
+                                                        value={normalUser}
+                                                        onChange={(e) => setNormalUser(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="login-field">
+                                                    <label>PASSWORD</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showNormalPass ? 'text' : 'password'}
+                                                            placeholder="Enter password (e.g. Polar@123)"
+                                                            value={normalPass}
+                                                            onChange={(e) => setNormalPass(e.target.value)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowNormalPass(!showNormalPass)}
+                                                            className="absolute right-3 top-3 text-[10px] text-cyan font-bold hover:text-white">
+                                                            {showNormalPass ? 'HIDE' : 'SHOW'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <button type="submit" className="primary-login-btn">
+                                                    ENTER PUBLIC OUTREACH →
+                                                </button>
+                                                {normalError && <div className="login-error">{normalError}</div>}
+                                                <div className="text-center text-xs text-gray-400 mt-4">
+                                                    First time here?{' '}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setViewMode('create')}
+                                                        className="text-cyan hover:underline font-semibold">
+                                                        Create a new user account
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        )}
+
+                                        {accessType === 'commander' && (
+                                            <form onSubmit={handleCommanderAuth}>
+                                                <div className="login-field">
+                                                    <label>AUTHORIZED PERSONNEL ID</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="NCPOR-ADMIN-001"
+                                                        value={commanderId}
+                                                        onChange={(e) => setCommanderId(e.target.value)}
+                                                        className="font-mono text-cyan"
+                                                    />
+                                                </div>
+                                                <div className="login-field">
+                                                    <label>PASSWORD</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showCmdPass ? 'text' : 'password'}
+                                                            placeholder="PolarAdmin@123"
+                                                            value={commanderPass}
+                                                            onChange={(e) => setCommanderPass(e.target.value)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowCmdPass(!showCmdPass)}
+                                                            className="absolute right-3 top-3 text-[10px] text-cyan font-bold hover:text-white">
+                                                            {showCmdPass ? 'HIDE' : 'SHOW'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <button type="submit" className="primary-login-btn">
+                                                    AUTHENTICATE CREDENTIALS →
+                                                </button>
+                                                {commanderError && <div className="login-error">{commanderError}</div>}
+                                                <div className="p-3 rounded-lg bg-darkbg/50 border border-panelborder text-[11px] text-gray-400 mt-4 leading-relaxed">
+                                                    <strong className="text-cyan block mb-1">ZERO-TRUST VERIFICATION</strong>
+                                                    Identity validation required before command-level operational session. Multi-factor Satellite Sync is requested at step 2.
+                                                </div>
+                                            </form>
+                                        )}
+                                    </div>
+                                )}
+
+                                {viewMode === 'create' && (
+                                    <form onSubmit={handleCreateAccount}>
+                                        <div className="mb-5">
+                                            <div className="text-[10px] text-cyan font-bold tracking-[3px] uppercase mb-1">Public Access Registration</div>
+                                            <h2 className="text-2xl font-bold text-white tracking-tight">Create Account</h2>
+                                            <p className="text-xs text-gray-400 mt-1">Register a research account to access the PolarTwin portal.</p>
+                                        </div>
+                                        <div className="login-field">
+                                            <label>DISPLAY NAME</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Dr. Aryan Roy"
+                                                value={createName}
+                                                onChange={(e) => setCreateName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="login-field">
+                                            <label>USERNAME</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Choose a username"
+                                                value={createUser}
+                                                onChange={(e) => setCreateUser(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="login-field">
+                                            <label>PASSWORD (MIN 6 CHARS)</label>
+                                            <input
+                                                type="password"
+                                                placeholder="Create a strong password"
+                                                value={createPass}
+                                                onChange={(e) => setCreatePass(e.target.value)}
+                                            />
+                                        </div>
+                                        <button type="submit" className="primary-login-btn">
+                                            CREATE RESEARCHER ACCOUNT →
+                                        </button>
+                                        {createError && <div className="login-error">{createError}</div>}
+                                        {createSuccess && <div className="login-success">{createSuccess}</div>}
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewMode('login')}
+                                            className="secondary-login-btn">
+                                            ← RETURN TO LOGIN
+                                        </button>
+                                    </form>
+                                )}
+
+                                {viewMode === 'mfa' && (
+                                    <form onSubmit={handleVerifyMFA}>
+                                        <div className="w-12 h-12 rounded-xl bg-cyan/10 border border-cyan/40 text-cyan flex items-center justify-center text-xl font-bold mb-4 shadow-[0_0_20px_rgba(0,234,255,0.3)]">
+                                            ✓
+                                        </div>
+                                        <div className="mb-5">
+                                            <div className="text-[10px] text-cyan font-bold tracking-[3px] uppercase mb-1">Secondary Verification</div>
+                                            <h2 className="text-2xl font-bold text-white tracking-tight">Satellite Sync</h2>
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Password verified for <span className="text-cyan font-mono font-bold">NCPOR-ADMIN-001</span>. Enter the 8-digit Satellite Sync Code.
+                                            </p>
+                                        </div>
+
+                                        <div className="login-field">
+                                            <label>SATELLITE SYNC CODE (8 DIGITS)</label>
+                                            <input
+                                                type="text"
+                                                maxLength="8"
+                                                placeholder="48291736"
+                                                value={satelliteCode}
+                                                onChange={(e) => setSatelliteCode(e.target.value)}
+                                                className="otp-input text-cyan"
+                                            />
+                                        </div>
+
+                                        <button type="submit" className="primary-login-btn">
+                                            VERIFY IDENTITY &amp; ENTER COMMAND →
+                                        </button>
+                                        {mfaError && <div className="login-error">{mfaError}</div>}
+                                        <button
+                                            type="button"
+                                            onClick={() => setViewMode('login')}
+                                            className="secondary-login-btn">
+                                            ← RETURN TO LOGIN
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // =====================================================================
+        // ROOT APPLICATION (Retains all tab data/state across switches)
+        // =====================================================================
+        const App = () => {
+            const [session, setSession] = useState(() => {
+                try {
+                    const saved = sessionStorage.getItem('polarTwinSession');
+                    return saved ? JSON.parse(saved) : null;
+                } catch (e) {
+                    return null;
+                }
+            });
+
+            const [activeTab, setActiveTab] = useState('overview');
+            const [data, setData] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('antarcticTelemetry');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        // Sanitize any generator outputs to clean rounded numbers
+                        if (parsed.generators) {
+                            parsed.generators = parsed.generators.map(g => ({ ...g, output: Math.round(g.output) }));
+                        }
+                        return parsed;
+                    }
+                } catch (e) {}
+                return INITIAL_DATA;
+            });
+
+            const [isLive, setIsLive] = useState(true);
+            const [currentTime, setCurrentTime] = useState(new Date().toUTCString().slice(17, 25) + ' UTC');
+
+            // Live simulation tick for Overview (guaranteed clean integer kW)
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setCurrentTime(new Date().toUTCString().slice(17, 25) + ' UTC');
+                    if (!isLive) return;
+
+                    setData(prev => {
+                        const newGens = prev.generators.map(g => ({
+                            ...g,
+                            output: Math.round(Math.max(30, Math.min(180, g.output + Math.round((Math.random() - 0.5) * 6)))),
+                        }));
+                        const newLoad = Math.round(Math.max(40, Math.min(95, prev.utility.load + Math.round((Math.random() - 0.5) * 4))));
+                        const newReserve = Math.round(Math.max(50, Math.min(98, prev.utility.reserve + Math.round((Math.random() - 0.5) * 2))));
+
+                        return {
+                            ...prev,
+                            generators: newGens,
+                            utility: { load: newLoad, reserve: newReserve },
+                        };
+                    });
+                }, 3000);
+                return () => clearInterval(timer);
+            }, [isLive]);
+
+            const handleSave = () => {
+                localStorage.setItem('antarcticTelemetry', JSON.stringify(data));
+                alert('Station configuration persisted to local storage.');
+            };
+
+            const handleAddSensor = (stationId, sensorName) => {
+                setData(prev => ({
+                    ...prev,
+                    stations: prev.stations.map(st => st.id === stationId ? {
+                        ...st,
+                        sensors: [...st.sensors, { id: 's' + Date.now(), name: sensorName, status: 'OK' }]
+                    } : st)
+                }));
+            };
+
+            const handleRemoveSensor = (stationId, sensorId) => {
+                setData(prev => ({
+                    ...prev,
+                    stations: prev.stations.map(st => st.id === stationId ? {
+                        ...st,
+                        sensors: st.sensors.filter(s => s.id !== sensorId)
+                    } : st)
+                }));
+            };
+
+            const handleAddStation = () => {
+                const name = prompt('Enter Remote Outpost Name:');
+                if (name && name.trim()) {
+                    setData(prev => ({
+                        ...prev,
+                        stations: [...prev.stations, {
+                            id: 'st_' + Date.now(),
+                            name: name.trim().toUpperCase(),
+                            coordinates: 'POLAR SECTOR ' + Math.floor(Math.random() * 80 + 10) + '°S',
+                            sensors: [{ id: 's' + Date.now(), name: 'Telemetry Transponder', status: 'OK' }]
+                        }]
+                    }));
+                }
+            };
+
+            const handleRemoveStation = (stationId) => {
+                if (confirm('Decommission station outpost telemetry feed?')) {
+                    setData(prev => ({ ...prev, stations: prev.stations.filter(s => s.id !== stationId) }));
+                }
+            };
+
+            const handleLogout = () => {
+                sessionStorage.removeItem('polarTwinSession');
+                setSession(null);
+            };
+
+            // If not logged in, render the login page
+            if (!session || !session.authenticated) {
+                return <LoginPage onLoginSuccess={(user) => setSession({ authenticated: true, user })} />;
+            }
+
+            const currentUser = session.user || {};
+            const isCommander = currentUser.role === 'Operational Commander' || currentUser.id === 'NCPOR-ADMIN-001';
+
+            return (
+                <div className="flex h-screen bg-darkbg text-gray-300 overflow-hidden font-sans">
+                    {/* LEFT SIDEBAR NAVIGATION */}
+                    <aside className="w-20 lg:w-24 bg-panelbg border-r border-panelborder flex flex-col items-center py-5 z-20 select-none">
+                        <div className="w-10 h-10 rounded-xl bg-cyan/10 border border-cyan/40 text-cyan flex items-center justify-center font-bold text-sm tracking-wider mb-6 shadow-[0_0_12px_rgba(34,211,238,0.2)]">
+                            PT
+                        </div>
+
+                        <nav className="flex-1 w-full px-2 space-y-2">
+                            {TABS.map(tab => {
+                                const IconComp = Icons[tab.icon];
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`sidebar-btn ${isActive ? 'active' : ''}`}
+                                        title={tab.label}>
+                                        <IconComp size={18} />
+                                        <span className="text-[9px] font-semibold tracking-wider uppercase">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </nav>
+
+                        <div className="mt-auto px-2 w-full text-center">
+                            <span className="inline-block w-2 h-2 rounded-full bg-green pulse-dot mb-1" />
+                            <div className="text-[9px] text-gray-500 font-mono">LINK 100%</div>
+                        </div>
+                    </aside>
+
+                    {/* MAIN CONTENT AREA */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        {/* TOP HEADER */}
+                        <header className="h-16 bg-panelbg border-b border-panelborder px-6 flex items-center justify-between z-10 flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div>
+                                    <h1 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
+                                        POLARTWIN-OS &nbsp;|&nbsp;
+                                        <span className="text-cyan uppercase">
+                                            {TABS.find(t => t.id === activeTab)?.label}
+                                        </span>
+                                    </h1>
+                                    <p className="text-[10px] text-gray-500 font-mono tracking-wider">
+                                        National Centre for Polar &amp; Ocean Research (NCPOR) — India
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-darkbg border border-panelborder text-xs font-mono">
+                                    <span className="w-2 h-2 rounded-full bg-cyan pulse-dot" />
+                                    <span className="text-gray-400">CLOCK:</span>
+                                    <span className="text-white font-bold">{currentTime}</span>
+                                </div>
+
+                                <button
+                                    onClick={() => setIsLive(!isLive)}
+                                    className={`btn text-xs py-1 px-3 ${isLive ? 'border-green/40 text-green bg-green/10' : 'border-gray-600 text-gray-400'}`}>
+                                    {isLive ? '● Live Telemetry' : '○ Paused'}
+                                </button>
+
+                                <button onClick={handleSave} className="btn text-xs py-1 px-3 text-cyan border-cyan/40 hover:bg-cyan/10">
+                                    <Icons.save /> Save
+                                </button>
+
+                                <div className="h-6 w-px bg-panelborder mx-1" />
+
+                                <div className="flex items-center gap-2.5 pl-2">
+                                    <div className="text-right">
+                                        <div className="text-xs font-bold text-white leading-tight">
+                                            {currentUser.id || currentUser.username || 'NCPOR-ADMIN-001'}
+                                        </div>
+                                        <div className="text-[9px] font-mono text-cyan tracking-wider">
+                                            {isCommander ? 'OPERATIONAL COMMANDER' : 'PUBLIC RESEARCHER'}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        title="Logout & Lock Console"
+                                        className="btn p-2 text-gray-400 hover:text-red hover:border-red/40 hover:bg-red/10">
+                                        <Icons.logout size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* TAB BODY VIEW: Tabs remain permanently mounted to retain 100% state and values across switches */}
+                        <main className="flex-1 overflow-y-auto p-6 bg-darkbg" style={{ scrollbarGutter: 'stable' }}>
+                            <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
+                                <OverviewTab
+                                    data={data}
+                                    onAddSensor={handleAddSensor}
+                                    onRemoveSensor={handleRemoveSensor}
+                                    onRemoveStation={handleRemoveStation}
+                                    onAddStation={handleAddStation}
+                                />
+                            </div>
+
+                            <div style={{ display: activeTab === 'models' ? 'block' : 'none', height: '100%' }}>
+                                <ModelViewerTab active={activeTab === 'models'} />
+                            </div>
+
+                            <div style={{ display: activeTab === 'logistics' ? 'block' : 'none' }}>
+                                <LogisticsTab active={activeTab === 'logistics'} />
+                            </div>
+
+                            <div style={{ display: activeTab === 'security' ? 'block' : 'none' }}>
+                                <SecurityTab active={activeTab === 'security'} />
+                            </div>
+
+                            <div style={{ display: activeTab === 'maintenance' ? 'block' : 'none' }}>
+                                <MaintenanceTab
+                                    active={activeTab === 'maintenance'}
+                                    onSyncGrid={(genOutputs, battAdjustment) => {
+                                        setData(prev => ({
+                                            ...prev,
+                                            generators: genOutputs,
+                                            utility: {
+                                                ...prev.utility,
+                                                load: Math.round(Math.max(30, Math.min(95, prev.utility.load + battAdjustment)))
+                                            }
+                                        }));
+                                    }}
+                                />
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

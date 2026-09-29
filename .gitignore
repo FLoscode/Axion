@@ -1,1 +1,6 @@
-Antarctic_Dashboard.exe
+__pycache__/
+*.py[cod]
+*.class
+*.zip
+build/
+dist/

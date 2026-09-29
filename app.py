@@ -88,16 +88,35 @@ def auto_extract_if_needed(target_dirname, zip_filenames):
     return os.path.join(BASE_DIR, target_dirname)
 
 
-# 1. Resolve 3D models directory (auto-extract from 3d_models.zip if missing)
-MODELS_DIR = auto_extract_if_needed('3d_models', ['3d_models.zip', 'Bharati Research Station Model (1).zip'])
+def locate_models_dir():
+    """Finds the directory containing 'bharati' and 'maitri' model subfolders."""
+    candidates = [
+        os.path.join(BASE_DIR, '3d_models'),
+        os.path.join(BASE_DIR, '3D_models'),
+        os.path.join(BASE_DIR, '3d_models', 'three.js'),
+        os.path.join(BASE_DIR, '3D_models', 'three.js'),
+        os.path.join(PARENT_DIR, '3d_models'),
+        os.path.join(PARENT_DIR, '3D_models'),
+        os.path.join(PARENT_DIR, '3d_models', 'three.js'),
+        os.path.join(PARENT_DIR, '3D_models', 'three.js'),
+        os.path.join(PARENT_DIR, 'Dashboard (branch 1)', '3d_models'),
+    ]
+    for c in candidates:
+        if os.path.isdir(os.path.join(c, 'bharati')) or os.path.isdir(os.path.join(c, 'maitri')):
+            return c
+    return auto_extract_if_needed('3d_models', ['3d_models.zip', '3D_models.zip', 'Bharati Research Station Model (1).zip'])
 
-# 2. Resolve cybersecurity gateway (auto-extract from cybersecurity_gateway.zip if missing)
+
+# 1. Resolve 3D models directory
+MODELS_DIR = locate_models_dir()
+
+# 2. Resolve cybersecurity gateway
 GATEWAY_DIR = auto_extract_if_needed('cybersecurity_gateway', ['cybersecurity_gateway.zip'])
 
-# 3. Resolve static directory (auto-extract from static.zip if missing)
+# 3. Resolve static directory
 STATIC_DIR = auto_extract_if_needed('static', ['static.zip'])
 
-# Add cybersecurity_gateway directories to sys.path
+# Add cybersecurity_gateway, cyber_seqc, and telemetry directories to sys.path
 for g_dir in [
     BASE_DIR,
     PARENT_DIR,
@@ -105,6 +124,13 @@ for g_dir in [
     os.path.join(GATEWAY_DIR, 'cybersecurity_gateway'),
     os.path.join(BASE_DIR, 'cybersecurity_gateway'),
     os.path.join(PARENT_DIR, 'cybersecurity_gateway'),
+    os.path.join(BASE_DIR, 'cyber_seqc'),
+    os.path.join(BASE_DIR, 'cyber_seqc', 'backend module'),
+    os.path.join(BASE_DIR, 'cyber_seqc', 'backend module', 'cyber_seqc'),
+    os.path.join(PARENT_DIR, 'cyber_seqc'),
+    os.path.join(PARENT_DIR, 'cyber_seqc', 'backend module'),
+    os.path.join(BASE_DIR, 'telemetry'),
+    os.path.join(PARENT_DIR, 'telemetry'),
 ]:
     if os.path.isdir(g_dir) and g_dir not in sys.path:
         sys.path.insert(0, g_dir)
@@ -148,15 +174,21 @@ def add_cors_headers(response):
 def handle_options(path):
     return ('', 204)
 
-# Attempt to register real Cybersecurity Gateway blueprint
+# Attempt to register real Cybersecurity Gateway blueprint (supports cybersecurity_gateway or cyber_seqc)
 gateway_registered = False
 try:
     from cybersecurity_gateway import gateway_bp
     app.register_blueprint(gateway_bp)
     gateway_registered = True
     print("[INIT] Cybersecurity Gateway Blueprint registered successfully.")
-except Exception as e:
-    print(f"[WARN] Could not register gateway_bp ({e}). Fallback mock endpoints active.")
+except Exception:
+    try:
+        from cyber_seqc import gateway_bp
+        app.register_blueprint(gateway_bp)
+        gateway_registered = True
+        print("[INIT] Cyber_seqc Blueprint registered successfully.")
+    except Exception as e:
+        print(f"[WARN] Could not register gateway_bp ({e}). Fallback mock endpoints active.")
 
 
 # ---------------------------------------------------------------------------
@@ -212,15 +244,42 @@ def index():
 @app.route('/models/<path:filename>')
 def serve_model(filename):
     """Serve 3D model files (OBJ, MTL) for Bharati and Maitri stations."""
-    global MODELS_DIR
-    target = os.path.join(MODELS_DIR, filename)
-    if not os.path.isfile(target):
-        MODELS_DIR = auto_extract_if_needed('3d_models', ['3d_models.zip', 'Bharati Research Station Model (1).zip'])
-        for root in SEARCH_ROOTS:
-            cand = os.path.join(root, '3d_models', filename)
-            if os.path.isfile(cand):
-                return send_from_directory(os.path.dirname(cand), os.path.basename(cand))
-    return send_from_directory(MODELS_DIR, filename)
+    search_dirs = [
+        MODELS_DIR,
+        os.path.join(MODELS_DIR, 'three.js'),
+        os.path.join(BASE_DIR, '3d_models'),
+        os.path.join(BASE_DIR, '3D_models'),
+        os.path.join(BASE_DIR, '3d_models', 'three.js'),
+        os.path.join(BASE_DIR, '3D_models', 'three.js'),
+        os.path.join(PARENT_DIR, '3d_models'),
+        os.path.join(PARENT_DIR, '3D_models'),
+        os.path.join(PARENT_DIR, '3d_models', 'three.js'),
+        os.path.join(PARENT_DIR, '3D_models', 'three.js'),
+    ]
+
+    # Try direct lookup
+    for d in search_dirs:
+        target = os.path.join(d, filename)
+        if os.path.isfile(target):
+            return send_from_directory(d, filename)
+
+    # Try stripping prefix if present
+    for prefix in ['three.js/', '3d_models/', '3D_models/']:
+        if filename.startswith(prefix):
+            stripped = filename[len(prefix):]
+            for d in search_dirs:
+                target = os.path.join(d, stripped)
+                if os.path.isfile(target):
+                    return send_from_directory(d, stripped)
+
+    # Fallback auto-extract if model directory is somehow missing
+    auto_extract_if_needed('3d_models', ['3d_models.zip', '3D_models.zip', 'Bharati Research Station Model (1).zip'])
+    for d in search_dirs:
+        target = os.path.join(d, filename)
+        if os.path.isfile(target):
+            return send_from_directory(d, filename)
+
+    return jsonify({"error": f"Model asset '{filename}' not found."}), 404
 
 
 @app.route('/static/<path:filename>')

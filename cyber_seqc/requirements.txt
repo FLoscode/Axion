@@ -1,0 +1,5 @@
+flask>=3.0
+pyotp>=2.10
+cryptography>=46.0
+ascon>=0.0.9
+kyber-py>=1.2.0

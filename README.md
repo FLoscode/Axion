@@ -129,4 +129,4 @@ http://localhost:5000
 ```
 
 
-*(c) 2024–2026 Axion_fc Team. Designed for the Smart India Hackathon.*
+*(c) 2025–2026 Axion_fc Team. Designed for the Smart India Hackathon.*
